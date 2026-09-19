@@ -95,6 +95,16 @@ function FilingTable({filings}){
                                         }
 
                                     </span>
+                                    {filing.amends_accession && (
+                                        <div style={{fontSize: '10px', color: '#ffcc00', marginTop: '4px'}}>
+                                            Amends: {filing.amends_accession.substring(0, 10)}...
+                                        </div>
+                                    )}
+                                    {filing.amended_by_accession && (
+                                        <div style={{fontSize: '10px', color: '#ff4444', marginTop: '4px'}}>
+                                            ⚠️ Outdated
+                                        </div>
+                                    )}
 
                                 </td>
 
