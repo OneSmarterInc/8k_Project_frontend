@@ -11,7 +11,8 @@ function Schedule() {
         setDailyChronicle,
         secondsToPoll,
         startAutomation,
-        pauseAutomation
+        pauseAutomation,
+        triggerRun
     } = useOutletContext() || {};
 
     const [weekendRuns, setWeekendRuns] = useState(false);
@@ -21,6 +22,8 @@ function Schedule() {
     const [logs, setLogs] = useState("");
     const terminalRef = useRef(null);
     const [popupMessage, setPopupMessage] = useState(null);
+    const [isRunning, setIsRunning] = useState(false);
+    const [showLogs, setShowLogs] = useState(false);
 
     // SMTP Form State
     const [smtpForm, setSmtpForm] = useState({
@@ -102,21 +105,21 @@ function Schedule() {
     };
 
     useEffect(() => {
-        let interval;
-        if (enabled) {
-            interval = setInterval(async () => {
-                try {
-                    const response = await api.get("/runs/logs/");
-                    if (response.data && response.data.logs !== undefined) {
-                        setLogs(response.data.logs);
+        const interval = setInterval(async () => {
+            try {
+                const response = await api.get("/runs/logs/");
+                if (response.data && response.data.logs !== undefined) {
+                    setLogs(response.data.logs);
+                    setIsRunning(!!response.data.is_running);
+                    if (response.data.is_running) {
+                        setShowLogs(true);
                     }
-                } catch (e) {}
-            }, 1500);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [enabled]);
+                }
+            } catch (e) {}
+        }, 1500);
+
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         if (terminalRef.current) {
@@ -124,31 +127,124 @@ function Schedule() {
         }
     }, [logs]);
 
-    const handleSave = () => {
-        setPopupMessage("Schedule saved.");
-        if (enabled) {
-            // Restart with new interval
-            startAutomation();
+    useEffect(() => {
+        api.get("/settings/schedule/")
+            .then(res => {
+                if(res.data && Object.keys(res.data).length > 0) {
+                    const d = res.data;
+                    if(d.frequency) setFreq(d.frequency);
+                    if(d.start_date) setStartDate(d.start_date);
+                    if(d.start_time) setStartTime(d.start_time);
+                    if(d.sync_zone !== undefined) setSyncZone(d.sync_zone);
+                    if(d.daily_recur) setDailyRecur(d.daily_recur);
+                    if(d.weekly_recur) setWeeklyRecur(d.weekly_recur);
+                    if(d.weekly_days) setWeeklyDays(d.weekly_days);
+                    if(d.monthly_type) setMonthlyType(d.monthly_type);
+                    if(d.monthly_months) setMonthlyMonths(d.monthly_months);
+                    if(d.monthly_days) setMonthlyDays(d.monthly_days);
+                    if(d.monthly_on_week) setMonthlyOnWeek(d.monthly_on_week);
+                    if(d.monthly_on_day) setMonthlyOnDay(d.monthly_on_day);
+                    if(d.run_count) setRunCount(d.run_count);
+                    if(d.run_times) setRunTimes(d.run_times);
+                }
+            })
+            .catch(e => console.error("Failed to load schedule config:", e));
+    }, []);
+
+    const handleSave = async () => {
+        try {
+            await api.post("/settings/schedule/", {
+                frequency: freq,
+                start_date: startDate,
+                start_time: startTime,
+                sync_zone: syncZone,
+                daily_recur: dailyRecur,
+                weekly_recur: weeklyRecur,
+                weekly_days: weeklyDays,
+                monthly_type: monthlyType,
+                monthly_months: monthlyMonths,
+                monthly_days: monthlyDays,
+                monthly_on_week: monthlyOnWeek,
+                monthly_on_day: monthlyOnDay,
+                run_count: runCount,
+                run_times: runTimes,
+                is_active: enabled
+            });
+            setPopupMessage("Schedule saved.");
+            if (enabled) {
+                // Restart with new interval
+                startAutomation();
+            }
+        } catch (e) {
+            console.error(e);
+            setPopupMessage("Failed to save schedule.");
         }
     };
 
     const nextPollDisplay = secondsToPoll > 0 ? (secondsToPoll >= 60 ? `${Math.floor(secondsToPoll / 60)}m ${secondsToPoll % 60}s` : `${secondsToPoll}s`) : "now";
 
-    const [schedules, setSchedules] = useState([
-        { id: 1, type: 'Daily', time: '16:30 ET', days: [] }
-    ]);
+    const [freq, setFreq] = useState("daily");
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startTime, setStartTime] = useState("19:37");
+    const [syncZone, setSyncZone] = useState(false);
 
-    const addSchedule = () => {
-        setSchedules([...schedules, { id: Date.now(), type: 'Daily', time: '12:00 ET', days: [] }]);
+    // Daily
+    const [dailyRecur, setDailyRecur] = useState(4);
+
+    // Weekly
+    const [weeklyRecur, setWeeklyRecur] = useState(1);
+    const [weeklyDays, setWeeklyDays] = useState({
+        sun: false, mon: true, tue: false, wed: false, thu: false, fri: false, sat: false
+    });
+
+    // Monthly
+    const [monthlyMonths, setMonthlyMonths] = useState("All months");
+    const [monthlyType, setMonthlyType] = useState("days");
+    const [monthlyDays, setMonthlyDays] = useState("1, 17, 18");
+    const [monthlyOnWeek, setMonthlyOnWeek] = useState("Second");
+    const [monthlyOnDay, setMonthlyOnDay] = useState("Sunday");
+
+    // Multiple Runs
+    const [runCount, setRunCount] = useState(4);
+    const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
+
+    const handleRunCountChange = (e) => {
+        const count = parseInt(e.target.value) || 1;
+        setRunCount(count);
+        
+        const gap = 1440 / Math.min(count, 12);
+        const newTimes = [];
+        for(let i=0; i<Math.min(count, 12); i++){
+            const mins = Math.round(i * gap);
+            const h = String(Math.floor(mins / 60)).padStart(2, '0');
+            const m = String(mins % 60).padStart(2, '0');
+            newTimes.push(`${h}:${m}`);
+        }
+        setRunTimes(newTimes);
     };
 
-    const removeSchedule = (id) => {
-        setSchedules(schedules.filter(s => s.id !== id));
+    const handleRunTimeChange = (idx, val) => {
+        const newTimes = [...runTimes];
+        newTimes[idx] = val;
+        setRunTimes(newTimes);
     };
 
-    const updateSchedule = (id, field, value) => {
-        setSchedules(schedules.map(s => s.id === id ? { ...s, [field]: value } : s));
-    };
+    // Generate preview text
+    let previewRule = "";
+    if (freq === "onetime") {
+        previewRule = "Once at the scheduled start time";
+    } else if (freq === "daily") {
+        previewRule = `Every ${dailyRecur} day(s)`;
+    } else if (freq === "weekly") {
+        const days = Object.entries(weeklyDays).filter(([_, v]) => v).map(([k, _]) => k.charAt(0).toUpperCase() + k.slice(1, 3));
+        previewRule = days.length ? `Every ${weeklyRecur} week(s) on ${days.join(', ')}` : "No day selected";
+    } else {
+        if (monthlyType === 'days') {
+            previewRule = `Months: ${monthlyMonths}, Days: ${monthlyDays}`;
+        } else {
+            previewRule = `Months: ${monthlyMonths}, On: ${monthlyOnWeek} ${monthlyOnDay}`;
+        }
+    }
 
     return (
         <section className="content page" id="page-schedule">
@@ -160,78 +256,191 @@ function Schedule() {
                 </div>
             </div>
 
-
-
-            <div className="card">
+            <div className="card" style={{ marginBottom: "24px" }}>
                 <div className="card-h">
                     <h3>Schedule Automation</h3>
                     <span className="hint">Coordinator</span>
                 </div>
-                <div className="card-b" style={{ padding: "24px" }}>
+                <div className="card-b" style={{ padding: "16px 24px" }}>
                     
-                    {schedules.map((sched, idx) => (
-                        <div key={sched.id} style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "16px", backgroundColor: "rgba(255,255,255,0.02)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                            <div style={{ flex: 1 }}>
-                                <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Frequency</label>
-                                <select className="search" style={{ width: "100%" }} value={sched.type} onChange={(e) => updateSchedule(sched.id, 'type', e.target.value)}>
-                                    <option value="Daily">Daily</option>
-                                    <option value="Weekly">Weekly</option>
-                                    <option value="Monthly">Monthly</option>
-                                </select>
-                            </div>
-
-                            {sched.type === 'Weekly' && (
-                                <div style={{ flex: 2 }}>
-                                    <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Days</label>
-                                    <input type="text" className="search" style={{ width: "100%" }} placeholder="e.g. Mon, Wed, Fri" value={sched.days.join(', ')} onChange={(e) => updateSchedule(sched.id, 'days', e.target.value.split(', '))} />
-                                </div>
-                            )}
+                    <div style={{ display: "flex", gap: "24px" }}>
+                        
+                        {/* LEFT PANEL: Radio buttons */}
+                        <div style={{ flex: "0 0 130px", borderRight: "1px solid rgba(255,255,255,0.05)", paddingRight: "16px" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px", color: "var(--dim)" }}>Settings</label>
                             
-                            {sched.type === 'Monthly' && (
-                                <div style={{ flex: 2 }}>
-                                    <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Dates</label>
-                                    <input type="text" className="search" style={{ width: "100%" }} placeholder="e.g. 1st, 15th" value={sched.days.join(', ')} onChange={(e) => updateSchedule(sched.id, 'days', e.target.value.split(', '))} />
-                                </div>
-                            )}
-
-                            <div style={{ flex: 1 }}>
-                                <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Time (ET)</label>
-                                <input type="time" className="search" style={{ width: "100%" }} value={sched.time.replace(' ET', '')} onChange={(e) => updateSchedule(sched.id, 'time', e.target.value + ' ET')} />
-                            </div>
-
-                            <div style={{ alignSelf: "flex-end" }}>
-                                <button className="btn" style={{ height: "38px", color: "var(--red)", borderColor: "rgba(255,100,100,0.2)" }} onClick={() => removeSchedule(sched.id)}>Remove</button>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                {['onetime', 'daily', 'weekly', 'monthly'].map(f => (
+                                    <label key={f} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
+                                        <input type="radio" name="freq" value={f} checked={freq === f} onChange={() => setFreq(f)} />
+                                        {f === 'onetime' ? 'One time' : f.charAt(0).toUpperCase() + f.slice(1)}
+                                    </label>
+                                ))}
                             </div>
                         </div>
-                    ))}
 
-                    <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
-                        <button className="btn" style={{ borderStyle: "dashed", width: "100%" }} onClick={addSchedule}>+ Add Schedule</button>
+                        {/* RIGHT PANEL: Settings for frequency */}
+                        <div style={{ flex: 1 }}>
+                            
+                            {/* Global Start Date/Time */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+                                <span style={{ fontSize: "13px", fontWeight: "500", width: "50px" }}>Start:</span>
+                                <input type="date" className="search" style={{ width: "130px", padding: "4px 8px" }} value={startDate} onChange={e => setStartDate(e.target.value)} />
+                                <input type="time" className="search" style={{ width: "110px", padding: "4px 8px" }} value={startTime} onChange={e => setStartTime(e.target.value)} />
+                                
+                                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px", marginLeft: "16px" }}>
+                                    <input type="checkbox" checked={syncZone} onChange={e => setSyncZone(e.target.checked)} />
+                                    <span style={{ color: "var(--dim)" }}>Synchronize across time zones</span>
+                                </label>
+                            </div>
+
+                            {/* Frequency Specific Settings Box */}
+                            <div style={{ backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", borderRadius: "6px", minHeight: "75px" }}>
+                                
+                                {/* Daily Settings */}
+                                {freq === "daily" && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                        <span style={{ fontSize: "13px" }}>Recur every:</span>
+                                        <input type="number" className="search" style={{ width: "70px", textAlign: "center" }} min="1" value={dailyRecur} onChange={e => setDailyRecur(e.target.value)} />
+                                        <span style={{ fontSize: "13px" }}>days</span>
+                                    </div>
+                                )}
+
+                            {/* Weekly Settings */}
+                            {freq === "weekly" && (
+                                <div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+                                        <span style={{ fontSize: "13px" }}>Recur every:</span>
+                                        <input type="number" className="search" style={{ width: "70px", textAlign: "center" }} min="1" value={weeklyRecur} onChange={e => setWeeklyRecur(e.target.value)} />
+                                        <span style={{ fontSize: "13px" }}>weeks on:</span>
+                                    </div>
+                                    
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+                                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                                            <label key={day} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px" }}>
+                                                <input type="checkbox" checked={weeklyDays[day.toLowerCase().substring(0,3)]} onChange={e => setWeeklyDays({...weeklyDays, [day.toLowerCase().substring(0,3)]: e.target.checked})} />
+                                                {day}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Monthly Settings */}
+                            {freq === "monthly" && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                        <span style={{ fontSize: "13px", width: "60px" }}>Months:</span>
+                                        <select className="search" style={{ width: "200px" }} value={monthlyMonths} onChange={e => setMonthlyMonths(e.target.value)}>
+                                            <option>All months</option>
+                                            <option>Select months...</option>
+                                        </select>
+                                    </div>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'days' ? 1 : 0.5 }}>
+                                        <input type="radio" name="monthlyType" value="days" checked={monthlyType === 'days'} onChange={() => setMonthlyType('days')} />
+                                        <span style={{ fontSize: "13px", width: "40px" }}>Days:</span>
+                                        <input type="text" className="search" style={{ flex: 1 }} value={monthlyDays} onChange={e => setMonthlyDays(e.target.value)} disabled={monthlyType !== 'days'} />
+                                    </div>
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'on' ? 1 : 0.5 }}>
+                                        <input type="radio" name="monthlyType" value="on" checked={monthlyType === 'on'} onChange={() => setMonthlyType('on')} />
+                                        <span style={{ fontSize: "13px", width: "40px" }}>On:</span>
+                                        <select className="search" style={{ width: "120px" }} value={monthlyOnWeek} onChange={e => setMonthlyOnWeek(e.target.value)} disabled={monthlyType !== 'on'}>
+                                            <option>First</option>
+                                            <option>Second</option>
+                                            <option>Third</option>
+                                            <option>Fourth</option>
+                                            <option>Last</option>
+                                        </select>
+                                        <select className="search" style={{ width: "140px" }} value={monthlyOnDay} onChange={e => setMonthlyOnDay(e.target.value)} disabled={monthlyType !== 'on'}>
+                                            <option>Sunday</option>
+                                            <option>Monday</option>
+                                            <option>Tuesday</option>
+                                            <option>Wednesday</option>
+                                            <option>Thursday</option>
+                                            <option>Friday</option>
+                                            <option>Saturday</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                                {/* One Time Settings */}
+                                {freq === "onetime" && (
+                                    <div style={{ fontSize: "13px", color: "var(--dim)" }}>
+                                        Task will run once at the specified start time.
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {/* Multiple Run Times block */}
+                    {freq !== "onetime" && (
+                        <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                <h4 style={{ margin: 0, fontSize: "13px" }}>Run Time(s)</h4>
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                    <span style={{ fontSize: "12px", color: "var(--dim)" }}>Total runs per day:</span>
+                                    <input type="number" className="search" style={{ width: "60px", textAlign: "center", padding: "2px 6px" }} min="1" max="12" value={runCount} onChange={handleRunCountChange} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+                                {runTimes.map((time, idx) => (
+                                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px", backgroundColor: "rgba(255,255,255,0.02)", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                        <span style={{ fontSize: "12px", color: "var(--dim)", width: "45px" }}>Run {idx + 1}</span>
+                                        <input type="time" className="search" style={{ flex: 1, padding: "2px 6px" }} value={time} onChange={(e) => handleRunTimeChange(idx, e.target.value)} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PREVIEW BLOCK */}
+                    <div style={{ marginTop: "16px", backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "6px", padding: "12px 16px" }}>
+                        <h4 style={{ margin: "0 0 8px 0", fontSize: "12px", color: "var(--accent)" }}>Schedule Preview</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Frequency:</span> <span style={{ color: "var(--text)", fontWeight: "500" }}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Runs:</span> <span style={{ color: "var(--text)" }}>{runCount} time(s) on each scheduled day</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run On:</span> <span style={{ color: "var(--text)" }}>{previewRule}</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run Times:</span> <span style={{ color: "var(--text)" }}>{runTimes.map(t => {
+                                let [h, m] = t.split(':');
+                                let suffix = h >= 12 ? 'PM' : 'AM';
+                                h = h % 12 || 12;
+                                return `${String(h).padStart(2,'0')}:${m} ${suffix}`;
+                            }).join(", ")}</span></div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                        <button className="btn btn-primary" onClick={handleSave}>Save Schedule</button>
                     </div>
 
                 </div>
             </div>
 
-            <div className="card">
+            <div className="card" style={{ marginBottom: "20px" }}>
                 <div className="card-h"><h3>SMTP Configurations</h3></div>
-                <div className="card-b" style={{ padding: "24px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "24px" }}>
+                <div className="card-b" style={{ padding: "16px 24px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Sender Name</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="senderName" value={smtpForm.senderName} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Sender Name</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="senderName" value={smtpForm.senderName} onChange={handleSmtpChange} />
                         </div>
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Sender Email</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="senderEmail" value={smtpForm.senderEmail} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Sender Email</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="senderEmail" value={smtpForm.senderEmail} onChange={handleSmtpChange} />
                         </div>
                         
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Reply-To Email (Optional)</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="replyToEmail" value={smtpForm.replyToEmail} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Reply-To Email</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="replyToEmail" value={smtpForm.replyToEmail} onChange={handleSmtpChange} />
                         </div>
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>Security Protocol</label>
-                            <select className="search" style={{ width: "100%" }} name="securityProtocol" value={smtpForm.securityProtocol} onChange={handleSmtpChange}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Security Protocol</label>
+                            <select className="search" style={{ width: "100%", padding: "4px 8px" }} name="securityProtocol" value={smtpForm.securityProtocol} onChange={handleSmtpChange}>
                                 <option value="TLS">TLS</option>
                                 <option value="SSL">SSL</option>
                                 <option value="STARTTLS">STARTTLS</option>
@@ -239,67 +448,138 @@ function Schedule() {
                         </div>
 
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>SMTP Host</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="smtpHost" value={smtpForm.smtpHost} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Host</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpHost" value={smtpForm.smtpHost} onChange={handleSmtpChange} />
                         </div>
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>SMTP Port</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="smtpPort" value={smtpForm.smtpPort} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Port</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpPort" value={smtpForm.smtpPort} onChange={handleSmtpChange} />
                         </div>
 
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>SMTP Username</label>
-                            <input type="text" className="search" style={{ width: "100%" }} name="smtpUsername" value={smtpForm.smtpUsername} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Username</label>
+                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpUsername" value={smtpForm.smtpUsername} onChange={handleSmtpChange} />
                         </div>
                         <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", color: "var(--dim)" }}>SMTP Password</label>
-                            <input type="password" className="search" style={{ width: "100%" }} placeholder="Leave blank to keep existing" name="smtpPassword" value={smtpForm.smtpPassword} onChange={handleSmtpChange} />
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Password</label>
+                            <input type="password" className="search" style={{ width: "100%", padding: "4px 8px" }} placeholder="Leave blank to keep existing" name="smtpPassword" value={smtpForm.smtpPassword} onChange={handleSmtpChange} />
                         </div>
                     </div>
                     
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "24px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
                         <button className="btn" onClick={handleTestConnection}>Test Connection</button>
                         <button className="btn btn-primary" onClick={handleSaveConfig}>Save Configuration</button>
                     </div>
                 </div>
             </div>
 
-            <div className="save-bar">
-                {enabled ? (
-                    <>
-                        <button className="btn btn-primary" onClick={handleSave}>Save schedule</button>
-                        <button className="btn btn-danger" onClick={pauseAutomation}>Pause automation</button>
-                    </>
-                ) : (
-                    <>
-                        <button className="btn btn-primary" onClick={startAutomation}>Start automation</button>
-                    </>
-                )}
+            <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <label style={{ position: "relative", display: "inline-block", width: "44px", height: "24px" }}>
+                        <input type="checkbox" style={{ opacity: 0, width: 0, height: 0 }} checked={enabled} onChange={async (e) => {
+                            setShowLogs(false);
+                            const newEnabled = e.target.checked;
+                            
+                            try {
+                                await api.post("/settings/schedule/", {
+                                    frequency: freq,
+                                    start_date: startDate,
+                                    start_time: startTime,
+                                    sync_zone: syncZone,
+                                    daily_recur: dailyRecur,
+                                    weekly_recur: weeklyRecur,
+                                    weekly_days: weeklyDays,
+                                    monthly_type: monthlyType,
+                                    monthly_months: monthlyMonths,
+                                    monthly_days: monthlyDays,
+                                    monthly_on_week: monthlyOnWeek,
+                                    monthly_on_day: monthlyOnDay,
+                                    run_count: runCount,
+                                    run_times: runTimes,
+                                    is_active: newEnabled
+                                });
+                                
+                                if (newEnabled) startAutomation();
+                                else pauseAutomation();
+                            } catch (err) {
+                                setPopupMessage("Failed to sync toggle with server.");
+                            }
+                        }} />
+                        <span style={{ 
+                            position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0, 
+                            backgroundColor: enabled ? "var(--accent)" : "rgba(255,255,255,0.1)", 
+                            transition: ".4s", borderRadius: "24px" 
+                        }}>
+                            <span style={{
+                                position: "absolute", content: '""', height: "18px", width: "18px", 
+                                left: enabled ? "23px" : "3px", bottom: "3px", backgroundColor: "#fff", 
+                                transition: ".4s", borderRadius: "50%", boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                            }}></span>
+                        </span>
+                    </label>
+                    <span style={{ fontSize: "14px", fontWeight: "600", color: enabled ? "var(--text)" : "var(--dim)" }}>
+                        {enabled ? "Background Schedule: ON" : "Background Schedule: OFF"}
+                    </span>
+                </div>
+                
+                <button 
+                    className="btn" 
+                    style={{ 
+                        marginLeft: "auto", 
+                        border: `1px solid ${isRunning ? "rgba(255,255,255,0.2)" : "var(--accent)"}`, 
+                        color: isRunning ? "var(--dim)" : "var(--accent)",
+                        cursor: isRunning ? "not-allowed" : "pointer",
+                        opacity: isRunning ? 0.6 : 1
+                    }} 
+                    disabled={isRunning}
+                    onClick={() => {
+                        if (isRunning) return;
+                        setShowLogs(true);
+                        setPopupMessage("Manual Run Triggered!");
+                        triggerRun();
+                    }}
+                >
+                    {isRunning ? "● Running..." : "▶ Run Now"}
+                </button>
             </div>
 
-            {enabled && (
-                <div className="card" style={{ marginTop: "24px" }}>
-                    <div className="card-h"><h3>Live Automation Logs</h3><span className="hint">Terminal</span></div>
-                    <div className="card-b" style={{ padding: "0" }}>
-                        <div 
-                            ref={terminalRef}
-                            style={{ 
-                                height: "300px", 
-                                overflowY: "auto", 
-                                backgroundColor: "#05080c", 
-                                color: "#66d9a8", 
-                                fontFamily: "monospace", 
-                                padding: "16px",
-                                fontSize: "13px",
-                                whiteSpace: "pre-wrap",
-                                borderTop: "1px solid rgba(255,255,255,0.05)"
-                            }}
-                        >
-                            {logs || "Waiting for watcher output..."}
-                        </div>
+            <div className="card" style={{ marginTop: "24px", marginBottom: "24px" }}>
+                <div className="card-h" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <h3 style={{ margin: 0, display: "inline-block" }}>Live Automation Logs</h3>
+                        <span className="hint" style={{ marginLeft: "8px" }}>Terminal</span>
+                    </div>
+                    <span style={{ 
+                        fontSize: "12px", 
+                        fontWeight: "600",
+                        padding: "4px 10px", 
+                        borderRadius: "12px", 
+                        backgroundColor: isRunning ? "rgba(102, 217, 168, 0.1)" : (enabled ? "rgba(255, 255, 255, 0.05)" : "rgba(235, 163, 54, 0.1)"),
+                        color: isRunning ? "#66d9a8" : (enabled ? "var(--dim)" : "#eba336"),
+                        border: `1px solid ${isRunning ? "rgba(102, 217, 168, 0.2)" : (enabled ? "rgba(255, 255, 255, 0.1)" : "rgba(235, 163, 54, 0.2)")}`
+                    }}>
+                        {isRunning ? "● Running Now" : (enabled ? "○ Standby (Scheduled)" : "⏸ Scheduler Paused")}
+                    </span>
+                </div>
+                <div className="card-b" style={{ padding: "0" }}>
+                    <div 
+                        ref={terminalRef}
+                        style={{ 
+                            height: "300px", 
+                            overflowY: "auto", 
+                            backgroundColor: "#05080c", 
+                            color: "#66d9a8", 
+                            fontFamily: "monospace", 
+                            padding: "16px",
+                            fontSize: "13px",
+                            whiteSpace: "pre-wrap",
+                            borderTop: "1px solid rgba(255,255,255,0.05)"
+                        }}
+                    >
+                        {showLogs ? logs : (enabled ? "Waiting for next scheduled trigger time..." : "Automation is currently disabled. Toggle ON to resume background schedule.")}
                     </div>
                 </div>
-            )}
+            </div>
 
             {popupMessage && (
                 <div 

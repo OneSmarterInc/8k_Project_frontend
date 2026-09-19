@@ -28,21 +28,6 @@ function MainLayout(){
 
     const startAutomation = () => {
         setEnabled(true);
-        // Trigger immediately once started
-        triggerRun();
-        const intervalMs = parseInt(pollInterval, 10) * 1000;
-        setSecondsToPoll(parseInt(pollInterval, 10));
-
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = setInterval(() => {
-            triggerRun();
-            setSecondsToPoll(parseInt(pollInterval, 10));
-        }, intervalMs);
-
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        countdownRef.current = setInterval(() => {
-            setSecondsToPoll((prev) => (prev > 0 ? prev - 1 : parseInt(pollInterval, 10) - 1));
-        }, 1000);
     };
 
     const pauseAutomation = () => {
@@ -67,7 +52,8 @@ function MainLayout(){
         setDailyChronicle,
         secondsToPoll,
         startAutomation,
-        pauseAutomation
+        pauseAutomation,
+        triggerRun
     };
 
     return (
