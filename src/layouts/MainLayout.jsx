@@ -38,6 +38,14 @@ function MainLayout(){
     };
 
     useEffect(() => {
+        api.get("/settings/schedule/")
+            .then(res => {
+                if(res.data && res.data.is_active !== undefined) {
+                    setEnabled(res.data.is_active);
+                }
+            })
+            .catch(e => console.error("Failed to load initial schedule config:", e));
+
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
             if (countdownRef.current) clearInterval(countdownRef.current);
