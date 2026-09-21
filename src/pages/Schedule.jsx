@@ -287,11 +287,6 @@ function Schedule() {
                                 <span style={{ fontSize: "13px", fontWeight: "500", width: "50px" }}>Start:</span>
                                 <input type="date" className="search" style={{ width: "130px", padding: "4px 8px" }} value={startDate} onChange={e => setStartDate(e.target.value)} />
                                 <input type="time" className="search" style={{ width: "110px", padding: "4px 8px" }} value={startTime} onChange={e => setStartTime(e.target.value)} />
-                                
-                                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px", marginLeft: "16px" }}>
-                                    <input type="checkbox" checked={syncZone} onChange={e => setSyncZone(e.target.checked)} />
-                                    <span style={{ color: "var(--dim)" }}>Synchronize across time zones</span>
-                                </label>
                             </div>
 
                             {/* Frequency Specific Settings Box */}

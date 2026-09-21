@@ -130,7 +130,11 @@ function FilingWorkspace({ filings }) {
                                         </tr>
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>EDGAR Accepted</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>{activeMailFiling.accepted_at?.replace('T', ' ').replace('Z', ' ET') || "N/A"}</td>
+                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>
+                                                {activeMailFiling.accepted_at 
+                                                    ? (new Date(activeMailFiling.accepted_at).toLocaleString('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '') + ' ET') 
+                                                    : "N/A"}
+                                            </td>
                                         </tr>
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Entry Session</td>
@@ -145,7 +149,9 @@ function FilingWorkspace({ filings }) {
                                         </tr>
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>SEC Item Codes</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>{activeMailFiling.form === '8-K' ? "5.02" : "N/A"}</td>
+                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>
+                                                {activeMailFiling.sec_item_codes ? activeMailFiling.sec_item_codes.replace(/[()']/g, '') : "N/A"}
+                                            </td>
                                         </tr>
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Item Verification</td>
