@@ -257,9 +257,58 @@ function Schedule() {
             </div>
 
             <div className="card" style={{ marginBottom: "24px" }}>
-                <div className="card-h">
-                    <h3>Schedule Automation</h3>
-                    <span className="hint">Coordinator</span>
+                <div className="card-h" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <h3 style={{ margin: 0 }}>Schedule Automation</h3>
+                        <span className="hint" style={{ margin: 0 }}>Coordinator</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <span style={{ fontSize: "14px", fontWeight: "600", color: enabled ? "var(--text)" : "var(--dim)" }}>
+                            {enabled ? "Background Schedule: ON" : "Background Schedule: OFF"}
+                        </span>
+                        <label style={{ position: "relative", display: "inline-block", width: "44px", height: "24px" }}>
+                            <input type="checkbox" style={{ opacity: 0, width: 0, height: 0 }} checked={enabled} onChange={async (e) => {
+                                setShowLogs(false);
+                                const newEnabled = e.target.checked;
+                                
+                                try {
+                                    await api.post("/settings/schedule/", {
+                                        frequency: freq,
+                                        start_date: startDate,
+                                        start_time: startTime,
+                                        sync_zone: syncZone,
+                                        daily_recur: dailyRecur,
+                                        weekly_recur: weeklyRecur,
+                                        weekly_days: weeklyDays,
+                                        monthly_type: monthlyType,
+                                        monthly_months: monthlyMonths,
+                                        monthly_days: monthlyDays,
+                                        monthly_on_week: monthlyOnWeek,
+                                        monthly_on_day: monthlyOnDay,
+                                        run_count: runCount,
+                                        run_times: runTimes,
+                                        is_active: newEnabled
+                                    });
+                                    
+                                    if (newEnabled) startAutomation();
+                                    else pauseAutomation();
+                                } catch (err) {
+                                    setPopupMessage("Failed to sync toggle with server.");
+                                }
+                            }} />
+                            <span style={{ 
+                                position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0, 
+                                backgroundColor: enabled ? "var(--accent)" : "rgba(255,255,255,0.1)", 
+                                transition: ".4s", borderRadius: "24px" 
+                            }}>
+                                <span style={{
+                                    position: "absolute", content: '""', height: "18px", width: "18px", 
+                                    left: enabled ? "23px" : "3px", bottom: "3px", backgroundColor: "#fff", 
+                                    transition: ".4s", borderRadius: "50%", boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                                }}></span>
+                            </span>
+                        </label>
+                    </div>
                 </div>
                 <div className="card-b" style={{ padding: "16px 24px" }}>
                     
@@ -468,55 +517,7 @@ function Schedule() {
                 </div>
             </div>
 
-            <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <label style={{ position: "relative", display: "inline-block", width: "44px", height: "24px" }}>
-                        <input type="checkbox" style={{ opacity: 0, width: 0, height: 0 }} checked={enabled} onChange={async (e) => {
-                            setShowLogs(false);
-                            const newEnabled = e.target.checked;
-                            
-                            try {
-                                await api.post("/settings/schedule/", {
-                                    frequency: freq,
-                                    start_date: startDate,
-                                    start_time: startTime,
-                                    sync_zone: syncZone,
-                                    daily_recur: dailyRecur,
-                                    weekly_recur: weeklyRecur,
-                                    weekly_days: weeklyDays,
-                                    monthly_type: monthlyType,
-                                    monthly_months: monthlyMonths,
-                                    monthly_days: monthlyDays,
-                                    monthly_on_week: monthlyOnWeek,
-                                    monthly_on_day: monthlyOnDay,
-                                    run_count: runCount,
-                                    run_times: runTimes,
-                                    is_active: newEnabled
-                                });
-                                
-                                if (newEnabled) startAutomation();
-                                else pauseAutomation();
-                            } catch (err) {
-                                setPopupMessage("Failed to sync toggle with server.");
-                            }
-                        }} />
-                        <span style={{ 
-                            position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0, 
-                            backgroundColor: enabled ? "var(--accent)" : "rgba(255,255,255,0.1)", 
-                            transition: ".4s", borderRadius: "24px" 
-                        }}>
-                            <span style={{
-                                position: "absolute", content: '""', height: "18px", width: "18px", 
-                                left: enabled ? "23px" : "3px", bottom: "3px", backgroundColor: "#fff", 
-                                transition: ".4s", borderRadius: "50%", boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                            }}></span>
-                        </span>
-                    </label>
-                    <span style={{ fontSize: "14px", fontWeight: "600", color: enabled ? "var(--text)" : "var(--dim)" }}>
-                        {enabled ? "Background Schedule: ON" : "Background Schedule: OFF"}
-                    </span>
-                </div>
-                
+            <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "flex-end", alignItems: "center" }}>
                 <button 
                     className="btn" 
                     style={{ 

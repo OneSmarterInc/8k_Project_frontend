@@ -1,6 +1,25 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 
+const formatStage = (stage) => {
+    if (!stage) return "Unknown";
+    return stage.charAt(0).toUpperCase() + stage.slice(1);
+};
+
+const formatReason = (code) => {
+    if (!code) return "Unknown Error";
+    return code.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const formatDate = (isoString) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+};
+
 function ReviewQueue() {
     const [filings, setFilings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -46,11 +65,14 @@ function ReviewQueue() {
                             <thead>
                                 <tr>
                                     <th>Ticker</th>
-                                    <th>Form</th>
                                     <th>Company</th>
+                                    <th>Form</th>
                                     <th>Filing Date</th>
                                     <th>Accession Number</th>
-                                    <th>Status</th>
+                                    <th>Failed Stage</th>
+                                    <th>Reason</th>
+                                    <th>Failure Details</th>
+                                    <th>Failed At</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -58,13 +80,18 @@ function ReviewQueue() {
                                 {filings.map((filing) => (
                                     <tr key={filing.id}>
                                         <td>{filing.ticker}</td>
-                                        <td>{filing.form}</td>
                                         <td>{filing.company_name}</td>
+                                        <td>{filing.form}</td>
                                         <td>{filing.filing_date || "-"}</td>
                                         <td>{filing.accession_number}</td>
                                         <td>
-                                            <span className="rstat r-fail">Failed</span>
+                                            <span className="rstat r-fail">{formatStage(filing.failure_stage)}</span>
                                         </td>
+                                        <td>{formatReason(filing.failure_code)}</td>
+                                        <td style={{ maxWidth: "300px", wordWrap: "break-word", whiteSpace: "normal" }}>
+                                            {filing.failure_message || "Unknown error"}
+                                        </td>
+                                        <td>{formatDate(filing.failure_created_at)}</td>
                                         <td>
                                             <a href={filing.source_url} target="_blank" rel="noreferrer" className="link">
                                                 Review Source

@@ -29,7 +29,7 @@ function Dashboard(){
 const [search,setSearch] = useState("");
 
 const [formFilter,setFormFilter] = useState("ALL");
-const [timeframe, setTimeframe] = useState("TODAY");
+const [timeframe, setTimeframe] = useState("ALL");
     const [loading,setLoading] = useState(true);
 
     const [error,setError] = useState("");
@@ -45,19 +45,13 @@ const [timeframe, setTimeframe] = useState("TODAY");
 
 
     async function loadFilings(){
-
         try{
-
             setLoading(true);
-
-           const data = await getFilings();
-
+            const data = await getFilings();
+            
             console.log("FILINGS FROM BACKEND:", data);
-
             setFilings(data);
-
         }
-
         catch(err){
 
     console.error(
@@ -96,12 +90,10 @@ const [timeframe, setTimeframe] = useState("TODAY");
                 return filingDate.getTime() === todayMidnight.getTime();
             }
             if (timeframe === "WTD") {
-                const startOfWeek = new Date(now);
-                const day = startOfWeek.getDay();
-                const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-                startOfWeek.setDate(diff);
-                startOfWeek.setHours(0,0,0,0);
-                return filingDate >= startOfWeek;
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                sevenDaysAgo.setHours(0,0,0,0);
+                return filingDate >= sevenDaysAgo;
             }
             if (timeframe === "MTD") {
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
