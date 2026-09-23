@@ -18,10 +18,15 @@ import FilingCard from "../components/FilingCard";
 */
 import FilterBar from "../components/FilterBar";
 
+// Last successful filings response, kept for this browser session.
+// Lets the Filings page render immediately when you navigate back to it
+// while a fresh copy loads in the background.
+let filingsCache = null;
+
 function Dashboard(){
 
 
-    const [filings,setFilings] = useState([]);
+    const [filings,setFilings] = useState(filingsCache || []);
 
     /*
     Filter and sorting states
@@ -30,7 +35,7 @@ const [search,setSearch] = useState("");
 
 const [formFilter,setFormFilter] = useState("ALL");
 const [timeframe, setTimeframe] = useState("ALL");
-    const [loading,setLoading] = useState(true);
+    const [loading,setLoading] = useState(filingsCache === null);
 
     const [error,setError] = useState("");
 
@@ -38,7 +43,11 @@ const [timeframe, setTimeframe] = useState("ALL");
 
     async function loadFilings(){
         try{
-            setLoading(true);
+            // Show "Loading filings..." only when nothing is cached yet;
+            // otherwise keep the cached list visible while refreshing.
+            if (filingsCache === null) {
+                setLoading(true);
+            }
 
             const result = await getFilings();
 
@@ -47,7 +56,9 @@ const [timeframe, setTimeframe] = useState("ALL");
                 result
             );
 
+            filingsCache = result.items;
             setFilings(result.items);
+            setError("");
         }
         catch(err){
 
@@ -56,10 +67,14 @@ const [timeframe, setTimeframe] = useState("ALL");
                 err.response || err
             );
 
-            setError(
-                err.response?.data?.detail ||
-                "Unable to load filings"
-            );
+            // With cached data on screen, a failed background refresh keeps
+            // the list visible; without it, show the error as before.
+            if (filingsCache === null) {
+                setError(
+                    err.response?.data?.detail ||
+                    "Unable to load filings"
+                );
+            }
         }
         finally{
             setLoading(false);
