@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios";
-
+import { getFilings } from "../services/filingService";
 const formatStage = (stage) => {
     if (!stage) return "Unknown";
     return stage.charAt(0).toUpperCase() + stage.slice(1);
@@ -26,20 +25,39 @@ function ReviewQueue() {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        async function fetchFailedFilings() {
-            try {
-                setLoading(true);
-                const response = await api.get("/filings/?status=failed");
-                setFilings(response.data);
-            } catch (err) {
-                console.error("Failed to fetch review queue", err);
-                setError("Unable to load review queue");
-            } finally {
-                setLoading(false);
-            }
+
+    async function fetchFailedFilings() {
+
+        try {
+            setLoading(true);
+
+            const result = await getFilings({
+                status: "failed"
+            });
+
+            setFilings(
+                result.items
+            );
+
+        } catch (err) {
+
+            console.error(
+                "Failed to fetch review queue",
+                err
+            );
+
+            setError(
+                "Unable to load review queue"
+            );
+
+        } finally {
+            setLoading(false);
         }
-        fetchFailedFilings();
-    }, []);
+    }
+
+    fetchFailedFilings();
+
+}, []);
 
     if (loading) {
         return <section className="content page" id="page-review">Loading...</section>;

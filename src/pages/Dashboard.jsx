@@ -44,37 +44,35 @@ const [timeframe, setTimeframe] = useState("ALL");
 
 
 
-    async function loadFilings(){
-        try{
-            setLoading(true);
-            const data = await getFilings();
-            
-            console.log("FILINGS FROM BACKEND:", data);
-            setFilings(data);
-        }
-        catch(err){
+   async function loadFilings(){
+    try{
+        setLoading(true);
 
-    console.error(
-        "Filing API Error:",
-        err.response || err
-    );
+        const result = await getFilings();
 
+        console.log(
+            "FILINGS FROM BACKEND:",
+            result
+        );
 
-    setError(
-        err.response?.data?.detail ||
-        "Unable to load filings"
-    );
-
-}
-
-        finally{
-
-            setLoading(false);
-
-        }
-
+        setFilings(result.items);
     }
+    catch(err){
 
+        console.error(
+            "Filing API Error:",
+            err.response || err
+        );
+
+        setError(
+            err.response?.data?.detail ||
+            "Unable to load filings"
+        );
+    }
+    finally{
+        setLoading(false);
+    }
+}
 
 
     const filterByTimeframe = (filingsList) => {

@@ -141,7 +141,54 @@ function Schedule() {
             setPopupMessage(`Error: ${err.message}`);
         }
     };
+const handleManualRun = async () => {
+    if (isRunning) {
+        return;
+    }
 
+    try {
+        const result = await triggerRun();
+
+        if (result?.status === "started") {
+            setIsRunning(true);
+            setShowLogs(true);
+
+            setPopupMessage(
+                "Manual run started successfully."
+            );
+
+            return;
+        }
+
+        if (result?.status === "already_running") {
+            setIsRunning(true);
+            setShowLogs(true);
+
+            setPopupMessage(
+                "The SEC watcher is already running."
+            );
+
+            return;
+        }
+
+        setPopupMessage(
+            result?.message ||
+            "Unable to determine watcher status."
+        );
+
+    } catch (error) {
+        console.error(
+            "Failed to start manual run:",
+            error
+        );
+
+        setPopupMessage(
+            error.response?.data?.message ||
+            "Failed to start the manual run."
+        );
+    }
+};
+   
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
