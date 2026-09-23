@@ -213,24 +213,34 @@ const handleManualRun = async () => {
         );
     }
 };
-   
-    useEffect(() => {
-        const interval = setInterval(async () => {
+      useEffect(() => {
+        const fetchLogs = async () => {
             try {
                 const response = await api.get("/runs/logs/");
-                if (response.data && response.data.logs !== undefined) {
-                    setLogs(response.data.logs);
-                    setIsRunning(!!response.data.is_running);
-                    if (response.data.is_running) {
+
+                if (response.data) {
+                    const logText = response.data.logs || "";
+                    const running = Boolean(response.data.is_running);
+
+                    setLogs(logText);
+                    setIsRunning(running);
+
+                    // Show logs while running, and keep showing the
+                    // last run's log after it finishes or after reload.
+                    if (running || logText) {
                         setShowLogs(true);
                     }
                 }
-            } catch (e) {}
-        }, 1500);
+            } catch (error) {
+                console.error("Failed to fetch watcher logs:", error);
+            }
+        };
+
+        fetchLogs();
+        const interval = setInterval(fetchLogs, 1500);
 
         return () => clearInterval(interval);
     }, []);
-
     useEffect(() => {
         if (terminalRef.current) {
             terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
