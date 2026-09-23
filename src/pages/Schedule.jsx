@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../api/axios";
 
+// FE-006: log polling intervals
+const LOG_POLL_ACTIVE_MS = 1500;           // while a run is active (same as before)
+const LOG_POLL_IDLE_MS = 10000;            // when nothing is running
+const LOG_POLL_STARTUP_GRACE_MS = 30000;   // stay fast right after Run Now
+
 function Schedule() {
     const {
         enabled,
@@ -24,6 +29,7 @@ function Schedule() {
     const [popupMessage, setPopupMessage] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
     const [showLogs, setShowLogs] = useState(false);
+    const fastPollUntilRef = useRef(0);
 
     const [freq, setFreq] = useState("daily");
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -178,6 +184,8 @@ const handleManualRun = async () => {
             setIsRunning(true);
             setShowLogs(true);
 
+            fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
+
             setPopupMessage(
                 "Manual run started successfully."
             );
@@ -188,6 +196,8 @@ const handleManualRun = async () => {
         if (result?.status === "already_running") {
             setIsRunning(true);
             setShowLogs(true);
+
+            fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
 
             setPopupMessage(
                 "The SEC watcher is already running."
@@ -213,14 +223,44 @@ const handleManualRun = async () => {
         );
     }
 };
-      useEffect(() => {
+    // FE-006: adaptive log polling.
+    // - 1.5 s while a run is active or just started (same as before).
+    // - 10 s when idle or when the browser tab is hidden.
+    // - Next request starts only after the previous one finishes.
+    useEffect(() => {
+        let cancelled = false;
+        let timer = null;
+        let inFlight = false;
+        let lastRunning = false;
+
+        const scheduleNext = () => {
+            if (cancelled) return;
+
+            clearTimeout(timer);
+
+            const fast =
+                !document.hidden &&
+                (lastRunning || Date.now() < fastPollUntilRef.current);
+
+            timer = setTimeout(
+                fetchLogs,
+                fast ? LOG_POLL_ACTIVE_MS : LOG_POLL_IDLE_MS
+            );
+        };
+
         const fetchLogs = async () => {
+            if (cancelled || inFlight) return;
+
+            inFlight = true;
+
             try {
                 const response = await api.get("/runs/logs/");
 
-                if (response.data) {
+                if (!cancelled && response.data) {
                     const logText = response.data.logs || "";
                     const running = Boolean(response.data.is_running);
+
+                    lastRunning = running;
 
                     setLogs(logText);
                     setIsRunning(running);
@@ -233,14 +273,30 @@ const handleManualRun = async () => {
                 }
             } catch (error) {
                 console.error("Failed to fetch watcher logs:", error);
+            } finally {
+                inFlight = false;
+                scheduleNext();
             }
         };
 
-        fetchLogs();
-        const interval = setInterval(fetchLogs, 1500);
+        const handleVisibility = () => {
+            if (!document.hidden) {
+                clearTimeout(timer);
+                fetchLogs();
+            }
+        };
 
-        return () => clearInterval(interval);
+        document.addEventListener("visibilitychange", handleVisibility);
+
+        fetchLogs();
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
     }, []);
+
     useEffect(() => {
         if (terminalRef.current) {
             terminalRef.current.scrollTop = terminalRef.current.scrollHeight;

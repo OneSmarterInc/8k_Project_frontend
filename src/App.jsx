@@ -11,7 +11,6 @@ import Dashboard from "./pages/Dashboard";
 import ReviewQueue from "./pages/ReviewQueue";
 import Schedule from "./pages/Schedule";
 import RunHistory from "./pages/RunHistory";
-import Settings from "./pages/Settings";
 
 
 function App(){
@@ -44,11 +43,7 @@ function App(){
                         element={<RunHistory />}
                     />
 
-                    <Route
-                        path="/settings"
-                        element={<Settings />}
-                    />
-
+                    
                 </Route>
 
             </Routes>
