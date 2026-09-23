@@ -25,6 +25,31 @@ function Schedule() {
     const [isRunning, setIsRunning] = useState(false);
     const [showLogs, setShowLogs] = useState(false);
 
+    const [freq, setFreq] = useState("daily");
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startTime, setStartTime] = useState("19:37");
+    const [syncZone, setSyncZone] = useState(false);
+
+    // Daily
+    const [dailyRecur, setDailyRecur] = useState(4);
+
+    // Weekly
+    const [weeklyRecur, setWeeklyRecur] = useState(1);
+    const [weeklyDays, setWeeklyDays] = useState({
+        sun: false, mon: true, tue: false, wed: false, thu: false, fri: false, sat: false
+    });
+
+    // Monthly
+    const [monthlyMonths, setMonthlyMonths] = useState("All months");
+    const [monthlyType, setMonthlyType] = useState("days");
+    const [monthlyDays, setMonthlyDays] = useState("1, 17, 18");
+    const [monthlyOnWeek, setMonthlyOnWeek] = useState("Second");
+    const [monthlyOnDay, setMonthlyOnDay] = useState("Sunday");
+
+    // Multiple Runs
+    const [runCount, setRunCount] = useState(4);
+    const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
+    
     // SMTP Form State
     const [smtpForm, setSmtpForm] = useState({
     senderName: "",
@@ -266,31 +291,6 @@ const handleManualRun = async () => {
         }
     };
 
-
-    const [freq, setFreq] = useState("daily");
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState("19:37");
-    const [syncZone, setSyncZone] = useState(false);
-
-    // Daily
-    const [dailyRecur, setDailyRecur] = useState(4);
-
-    // Weekly
-    const [weeklyRecur, setWeeklyRecur] = useState(1);
-    const [weeklyDays, setWeeklyDays] = useState({
-        sun: false, mon: true, tue: false, wed: false, thu: false, fri: false, sat: false
-    });
-
-    // Monthly
-    const [monthlyMonths, setMonthlyMonths] = useState("All months");
-    const [monthlyType, setMonthlyType] = useState("days");
-    const [monthlyDays, setMonthlyDays] = useState("1, 17, 18");
-    const [monthlyOnWeek, setMonthlyOnWeek] = useState("Second");
-    const [monthlyOnDay, setMonthlyOnDay] = useState("Sunday");
-
-    // Multiple Runs
-    const [runCount, setRunCount] = useState(4);
-    const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
 
    const handleRunCountChange = (e) => {
     const count = Math.min(

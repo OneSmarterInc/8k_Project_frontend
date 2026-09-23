@@ -10,6 +10,9 @@
 
     Backend API:
     GET /api/filings/
+
+    W-022:
+    POST /api/filings/<id>/resolve-amendment/
 */
 
 import api from "../api/axios";
@@ -67,15 +70,7 @@ function normalizeFilingResponse(data) {
 
 
 /*
-    Fetch filings
-
     Supported filters include:
-
-    ticker:
-    /api/filings/?ticker=ORCL
-
-    form:
-    /api/filings/?form=8-K
 
     status:
     /api/filings/?status=failed
@@ -98,4 +93,27 @@ export async function getFilings(filters = {}) {
     return normalizeFilingResponse(
         response.data
     );
+}
+
+
+/*
+    W-022:
+    Resolve an ambiguous 8-K/A against one of the
+    backend-approved original 8-K candidates.
+
+    This endpoint is admin-only.
+*/
+export async function resolveAmendment(
+    filingId,
+    originalId
+) {
+
+    const response = await api.post(
+        `/filings/${filingId}/resolve-amendment/`,
+        {
+            original_id: originalId
+        }
+    );
+
+    return response.data;
 }
