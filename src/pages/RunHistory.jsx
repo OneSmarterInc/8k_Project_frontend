@@ -4,25 +4,80 @@ import api from "../api/axios";
 function RunHistory() {
     const [runs, setRuns] = useState([]);
     const [loading, setLoading] = useState(true);
+    // FE-010: distinguish "backend unreachable" from "no runs yet".
+    const [error, setError] = useState("");
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
+        let cancelled = false;
+
         async function fetchRuns() {
+            setLoading(true);
+            setError("");
+
             try {
                 const response = await api.get("/runs/");
-                setRuns(response.data);
+
+                if (!cancelled) {
+                    setRuns(
+                        Array.isArray(response.data)
+                            ? response.data
+                            : []
+                    );
+                }
             } catch (err) {
                 console.error("Failed to fetch runs", err);
+
+                if (!cancelled) {
+                    setError(
+                        "Could not load run history. The backend may be unavailable."
+                    );
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         }
+
         fetchRuns();
-    }, []);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [reloadKey]);
 
     const [filter, setFilter] = useState("all");
 
     if (loading) {
         return <section className="content page" id="page-history">Loading...</section>;
+    }
+
+    if (error) {
+        return (
+            <section className="content page" id="page-history">
+                <div
+                    style={{
+                        padding: "24px",
+                        border: "1px solid rgba(226,105,90,.3)",
+                        background: "rgba(226,105,90,.06)",
+                        borderRadius: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "16px"
+                    }}
+                >
+                    <span style={{ color: "var(--red, #e2695a)" }}>{error}</span>
+                    <button
+                        className="btn"
+                        onClick={() => setReloadKey(key => key + 1)}
+                    >
+                        Retry
+                    </button>
+                </div>
+            </section>
+        );
     }
 
     const filteredRuns = runs.filter(run => {

@@ -1,10 +1,17 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getFilings } from "../services/filingService";
 
+// FE-010: Review Queue badge refresh interval
+const SIDEBAR_REFRESH_MS = 60000;
+
 function Sidebar() {
     const [failedCount, setFailedCount] = useState(0);
+    const location = useLocation();
 
+    // FE-010: keep the Review Queue badge current.
+    // Refreshes on every page change and every 60 s (skipped while the
+    // browser tab is hidden). On error the last known count is kept.
     useEffect(() => {
         let cancelled = false;
 
@@ -24,19 +31,22 @@ function Sidebar() {
                     "Failed to fetch review count",
                     err
                 );
-
-                if (!cancelled) {
-                    setFailedCount(0);
-                }
             }
         }
 
         fetchReviewCount();
 
+        const interval = setInterval(() => {
+            if (!document.hidden) {
+                fetchReviewCount();
+            }
+        }, SIDEBAR_REFRESH_MS);
+
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
-    }, []);
+    }, [location.pathname]);
 
     const menu = [
         {
