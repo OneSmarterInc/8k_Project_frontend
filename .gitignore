@@ -1,24 +1,24 @@
-# Logs
-logs
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets / local config
+.env
+
+# Local databases
+db.sqlite3
+*.sqlite3
+
+# Office lock files
+~$*
+
+# Runtime output
+downloads/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+watcher_latest.log
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# SMTP test files
+test_smtp.py
