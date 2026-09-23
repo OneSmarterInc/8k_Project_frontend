@@ -16,15 +16,65 @@ function MainLayout(){
     const intervalRef = useRef(null);
     const countdownRef = useRef(null);
 
-    const triggerRun = async () => {
-        try {
-            await api.post("/runs/trigger/", {
-                daily_chronicle: dailyChronicle
-            });
-        } catch (e) {
-            console.error("Failed to trigger run:", e);
+   const triggerRun = async () => {
+    try {
+        const response = await api.post("/runs/trigger/", {
+            daily_chronicle: dailyChronicle
+        });
+
+        return response.data;
+
+    } catch (e) {
+        console.error("Failed to trigger run:", e);
+        throw e;
+    }
+};
+const handleManualRun = async () => {
+
+    if (isRunning) {
+        return;
+    }
+
+    setShowLogs(true);
+
+    try {
+
+        const result = await triggerRun();
+
+        if (result?.status === "started") {
+
+            setPopupMessage(
+                "Manual run started successfully."
+            );
+
+        } else if (
+            result?.status === "already_running"
+        ) {
+
+            setIsRunning(true);
+
+            setPopupMessage(
+                "The SEC watcher is already running."
+            );
+
+        } else {
+
+            setPopupMessage(
+                result?.message ||
+                "Unable to determine watcher status."
+            );
+
         }
-    };
+
+    } catch (error) {
+
+        setPopupMessage(
+            error.response?.data?.message ||
+            "Failed to start the manual run."
+        );
+
+    }
+};
 
     const startAutomation = () => {
         setEnabled(true);

@@ -73,17 +73,11 @@ function RunHistory() {
                                 const isFail = run.status === "failed";
                                 const rstatClass = isOk ? "r-ok" : (isFail ? "r-fail" : "r-part");
 
-                                let reason = "—";
-                                if (isFail) {
-                                    if (!run.completed_at) {
-                                        reason = "Process aborted (Server restart)";
-                                    } else {
-                                        reason = "Processing failure";
-                                    }
-                                } else if (run.status === "partial") {
-                                    reason = "Some files failed processing";
-                                }
+let reason = "—";
 
+if (run.status === "partial") {
+    reason = "Some files did not complete successfully";
+}
                                 return (
                                     <tr key={run.id}>
                                         <td>run-{run.id}</td>

@@ -136,41 +136,80 @@ function FilingWorkspace({ filings }) {
                                                     : "N/A"}
                                             </td>
                                         </tr>
-                                        <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
-                                            <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Entry Session</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>
-                                                {(() => {
-                                                    if(!activeMailFiling.accepted_at) return "N/A";
-                                                    let d = new Date(activeMailFiling.accepted_at);
-                                                    d.setDate(d.getDate() + 1);
-                                                    return d.toISOString().split('T')[0];
-                                                })()}
-                                            </td>
-                                        </tr>
+                                       <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
+    <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>
+        Entry Session
+    </td>
+
+    <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>
+        {activeMailFiling.entry_session || "N/A"}
+    </td>
+</tr> 
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>SEC Item Codes</td>
                                             <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>
                                                 {activeMailFiling.sec_item_codes ? activeMailFiling.sec_item_codes.replace(/[()']/g, '') : "N/A"}
                                             </td>
                                         </tr>
-                                        <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
-                                            <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Item Verification</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace', color: 'var(--green, #66d9a8)' }}>MATCH</td>
-                                        </tr>
-                                        <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
-                                            <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Company Verification</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace', color: 'var(--green, #66d9a8)' }}>MATCH</td>
-                                        </tr>
+<tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
+    <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>
+        Item Verification
+    </td>
+
+    <td
+        style={{
+            padding: '8px 16px',
+            fontFamily: 'monospace',
+            color:
+                activeMailFiling.item_codes_match === true
+                    ? 'var(--green, #66d9a8)'
+                    : activeMailFiling.item_codes_match === false
+                        ? 'var(--red, #e2695a)'
+                        : 'var(--dim, #6e7a8a)'
+        }}
+    >
+        {
+            activeMailFiling.item_codes_match === true
+                ? "MATCH"
+                : activeMailFiling.item_codes_match === false
+                    ? "MISMATCH"
+                    : "NOT VERIFIED"
+        }
+    </td>
+</tr>                                      <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
+    <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>
+        Company Verification
+    </td>
+
+    <td
+        style={{
+            padding: '8px 16px',
+            fontFamily: 'monospace',
+            color: 'var(--dim, #6e7a8a)'
+        }}
+    >
+        N/A
+    </td>
+</tr>
                                         <tr style={{ borderBottom: '1px solid var(--border, rgba(255,255,255,0.05))' }}>
                                             <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Accession Number</td>
                                             <td style={{ padding: '8px 16px', fontFamily: 'monospace' }}>{activeMailFiling.accession_number}</td>
                                         </tr>
-                                        <tr>
-                                            <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>Filename</td>
-                                            <td style={{ padding: '8px 16px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                                                {activeMailFiling.form} (Current report)_{activeMailFiling.form}_{activeMailFiling.filing_date || activeMailFiling.accepted_at?.split('T')[0]}.htm
-                                            </td>
-                                        </tr>
+                                      <tr>
+    <td style={{ padding: '8px 16px', color: 'var(--dim, #6e7a8a)' }}>
+        Filename
+    </td>
+
+    <td
+        style={{
+            padding: '8px 16px',
+            fontFamily: 'monospace',
+            wordBreak: 'break-all'
+        }}
+    >
+        {activeMailFiling.primary_document || "N/A"}
+    </td>
+</tr>
                                     </tbody>
                                 </table>
                             </div>

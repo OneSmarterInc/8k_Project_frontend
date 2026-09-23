@@ -44,12 +44,11 @@ function FilingCard({filing}){
                 </div>
             )}
             
-            {filing.amended_by_accession && (
-                <div style={{ backgroundColor: 'rgba(255, 68, 68, 0.2)', color: '#ff4444', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', margin: '0 20px', borderRadius: '4px', border: '1px solid rgba(255, 68, 68, 0.4)' }}>
-                    ⚠️ OUTDATED: SEE AMENDMENT {filing.amended_by_accession}
-                </div>
-            )}
-
+{filing.amended_by_accession?.length > 0 && (
+    <div style={{ backgroundColor: 'rgba(255, 68, 68, 0.2)', color: '#ff4444', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', margin: '0 20px', borderRadius: '4px', border: '1px solid rgba(255, 68, 68, 0.4)' }}>
+        ⚠️ OUTDATED: SEE AMENDMENT {filing.amended_by_accession.join(", ")}
+    </div>
+)}
             <div className="filing-meta">
 
 

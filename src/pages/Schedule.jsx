@@ -27,19 +27,57 @@ function Schedule() {
 
     // SMTP Form State
     const [smtpForm, setSmtpForm] = useState({
-        senderName: "OneSmarter Support",
-        senderEmail: "support@onesmarter.com",
-        replyToEmail: "help@onesmarter.com",
-        securityProtocol: "TLS",
-        smtpHost: "smtp.ionos.com",
-        smtpPort: "587",
-        smtpUsername: "akshay.kumar@onesmarter.com",
-        smtpPassword: ""
-    });
+    senderName: "",
+    senderEmail: "",
+    replyToEmail: "",
+    securityProtocol: "TLS",
+    smtpHost: "",
+    smtpPort: "587",
+    smtpUsername: "",
+    smtpPassword: ""
+});
 
     const handleSmtpChange = (e) => {
         setSmtpForm({ ...smtpForm, [e.target.name]: e.target.value });
     };
+    useEffect(() => {
+    let cancelled = false;
+
+    const loadSmtpConfig = async () => {
+        try {
+            const response = await api.get("/settings/smtp/");
+
+            if (cancelled) {
+                return;
+            }
+
+            const data = response.data || {};
+
+            setSmtpForm({
+                senderName: data.senderName || "",
+                senderEmail: data.senderEmail || "",
+                replyToEmail: data.replyToEmail || "",
+                securityProtocol: data.securityProtocol || "TLS",
+                smtpHost: data.smtpHost || "",
+                smtpPort: data.smtpPort || "587",
+                smtpUsername: data.smtpUsername || "",
+                smtpPassword: ""
+            });
+
+        } catch (error) {
+            console.error(
+                "Failed to load SMTP configuration:",
+                error
+            );
+        }
+    };
+
+    loadSmtpConfig();
+
+    return () => {
+        cancelled = true;
+    };
+}, []);
 
     const validateSmtpForm = (isTest = false) => {
         const { senderName, senderEmail, replyToEmail, smtpHost, smtpPort, smtpUsername, smtpPassword } = smtpForm;
@@ -181,7 +219,6 @@ function Schedule() {
         }
     };
 
-    const nextPollDisplay = secondsToPoll > 0 ? (secondsToPoll >= 60 ? `${Math.floor(secondsToPoll / 60)}m ${secondsToPoll % 60}s` : `${secondsToPoll}s`) : "now";
 
     const [freq, setFreq] = useState("daily");
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -208,20 +245,26 @@ function Schedule() {
     const [runCount, setRunCount] = useState(4);
     const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
 
-    const handleRunCountChange = (e) => {
-        const count = parseInt(e.target.value) || 1;
-        setRunCount(count);
-        
-        const gap = 1440 / Math.min(count, 12);
-        const newTimes = [];
-        for(let i=0; i<Math.min(count, 12); i++){
-            const mins = Math.round(i * gap);
-            const h = String(Math.floor(mins / 60)).padStart(2, '0');
-            const m = String(mins % 60).padStart(2, '0');
-            newTimes.push(`${h}:${m}`);
-        }
-        setRunTimes(newTimes);
-    };
+   const handleRunCountChange = (e) => {
+    const count = Math.min(
+        Math.max(parseInt(e.target.value) || 1, 1),
+        4
+    );
+
+    setRunCount(count);
+
+    const newTimes = [];
+
+    for (let i = 0; i < count; i++) {
+        const totalHours = i * 6;
+
+        const hour = String(totalHours).padStart(2, "0");
+
+        newTimes.push(`${hour}:00`);
+    }
+
+    setRunTimes(newTimes);
+};
 
     const handleRunTimeChange = (idx, val) => {
         const newTimes = [...runTimes];
@@ -250,10 +293,14 @@ function Schedule() {
         <section className="content page" id="page-schedule">
             <div className="auto-banner" style={{ background: enabled ? "rgba(90,201,153,.06)" : "rgba(226,105,90,.06)", borderColor: enabled ? "rgba(90,201,153,.3)" : "rgba(226,105,90,.3)" }}>
                 <span className="bd" style={{ background: enabled ? "var(--green)" : "var(--red)" }}></span>
-                <div>
-                    Automation is <b>{enabled ? "enabled" : "paused"}</b>. 
-                    {enabled ? ` Next poll in ${nextPollDisplay} · next full run 16:30 ET today.` : " Start automation to resume polling."}
-                </div>
+               <div>
+    Automation is <b>{enabled ? "enabled" : "paused"}</b>.
+    {
+        enabled
+            ? " Scheduled runs will follow the saved automation schedule."
+            : " Start automation to resume scheduled runs."
+    }
+</div>
             </div>
 
             <div className="card" style={{ marginBottom: "24px" }}>
@@ -427,7 +474,7 @@ function Schedule() {
                                 <h4 style={{ margin: 0, fontSize: "13px" }}>Run Time(s)</h4>
                                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                     <span style={{ fontSize: "12px", color: "var(--dim)" }}>Total runs per day:</span>
-                                    <input type="number" className="search" style={{ width: "60px", textAlign: "center", padding: "2px 6px" }} min="1" max="12" value={runCount} onChange={handleRunCountChange} />
+                                    <input type="number" className="search" style={{ width: "60px", textAlign: "center", padding: "2px 6px" }} min="1" max="4" value={runCount} onChange={handleRunCountChange} />
                                 </div>
                             </div>
 
@@ -518,25 +565,20 @@ function Schedule() {
             </div>
 
             <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "flex-end", alignItems: "center" }}>
-                <button 
-                    className="btn" 
-                    style={{ 
-                        marginLeft: "auto", 
-                        border: `1px solid ${isRunning ? "rgba(255,255,255,0.2)" : "var(--accent)"}`, 
-                        color: isRunning ? "var(--dim)" : "var(--accent)",
-                        cursor: isRunning ? "not-allowed" : "pointer",
-                        opacity: isRunning ? 0.6 : 1
-                    }} 
-                    disabled={isRunning}
-                    onClick={() => {
-                        if (isRunning) return;
-                        setShowLogs(true);
-                        setPopupMessage("Manual Run Triggered!");
-                        triggerRun();
-                    }}
-                >
-                    {isRunning ? "● Running..." : "▶ Run Now"}
-                </button>
+               <button
+    className="btn"
+    style={{
+        marginLeft: "auto",
+        border: `1px solid ${isRunning ? "rgba(255,255,255,0.2)" : "var(--accent)"}`,
+        color: isRunning ? "var(--dim)" : "var(--accent)",
+        cursor: isRunning ? "not-allowed" : "pointer",
+        opacity: isRunning ? 0.6 : 1
+    }}
+    disabled={isRunning}
+    onClick={handleManualRun}
+>
+    {isRunning ? "● Running..." : "▶ Run Now"}
+</button>
             </div>
 
             <div className="card" style={{ marginTop: "24px", marginBottom: "24px" }}>
