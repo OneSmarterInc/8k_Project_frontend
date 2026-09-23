@@ -6,6 +6,7 @@ import api from "../api/axios";
 const LOG_POLL_ACTIVE_MS = 1500;           // while a run is active (same as before)
 const LOG_POLL_IDLE_MS = 10000;            // when nothing is running
 const LOG_POLL_STARTUP_GRACE_MS = 30000;   // stay fast right after Run Now
+const RUN_STARTUP_LOCK_MS = 15000;         // keep Run Now disabled while the watcher starts
 
 function Schedule() {
     const {
@@ -30,6 +31,16 @@ function Schedule() {
     const [isRunning, setIsRunning] = useState(false);
     const [showLogs, setShowLogs] = useState(false);
     const fastPollUntilRef = useRef(0);
+    // Keeps Run Now disabled while the watcher process starts up, before it
+    // holds the lock and /runs/logs/ reports is_running (prevents a second
+    // click from launching again and truncating watcher_latest.log).
+    const [startingUp, setStartingUp] = useState(false);
+    const startupTimerRef = useRef(null);
+    const runLocked = isRunning || startingUp;
+
+    useEffect(() => {
+        return () => clearTimeout(startupTimerRef.current);
+    }, []);
 
     const [freq, setFreq] = useState("daily");
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -173,14 +184,22 @@ function Schedule() {
         }
     };
 const handleManualRun = async () => {
-    if (isRunning) {
+    if (runLocked) {
         return;
     }
+
+    setStartingUp(true);
+    clearTimeout(startupTimerRef.current);
 
     try {
         const result = await triggerRun();
 
         if (result?.status === "started") {
+            startupTimerRef.current = setTimeout(
+                () => setStartingUp(false),
+                RUN_STARTUP_LOCK_MS
+            );
+
             setIsRunning(true);
             setShowLogs(true);
 
@@ -192,6 +211,8 @@ const handleManualRun = async () => {
 
             return;
         }
+
+        setStartingUp(false);
 
         if (result?.status === "already_running") {
             setIsRunning(true);
@@ -212,6 +233,8 @@ const handleManualRun = async () => {
         );
 
     } catch (error) {
+        setStartingUp(false);
+
         console.error(
             "Failed to start manual run:",
             error
@@ -682,15 +705,15 @@ const handleManualRun = async () => {
     className="btn"
     style={{
         marginLeft: "auto",
-        border: `1px solid ${isRunning ? "rgba(255,255,255,0.2)" : "var(--accent)"}`,
-        color: isRunning ? "var(--dim)" : "var(--accent)",
-        cursor: isRunning ? "not-allowed" : "pointer",
-        opacity: isRunning ? 0.6 : 1
+        border: `1px solid ${runLocked ? "rgba(255,255,255,0.2)" : "var(--accent)"}`,
+        color: runLocked ? "var(--dim)" : "var(--accent)",
+        cursor: runLocked ? "not-allowed" : "pointer",
+        opacity: runLocked ? 0.6 : 1
     }}
-    disabled={isRunning}
+    disabled={runLocked}
     onClick={handleManualRun}
 >
-    {isRunning ? "● Running..." : "▶ Run Now"}
+    {isRunning ? "● Running..." : (startingUp ? "● Starting..." : "▶ Run Now")}
 </button>
             </div>
 
