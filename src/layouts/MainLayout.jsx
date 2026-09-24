@@ -89,13 +89,15 @@ function MainLayout(){
         triggerRun
     };
 
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
     return (
         <div id="app">
-            <Sidebar />
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main>
                 <SessionBar />
-                <Topbar />
+                <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
                 <Outlet
                     context={automationContext}

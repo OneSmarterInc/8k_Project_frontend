@@ -5,7 +5,7 @@ import { getFilings } from "../services/filingService";
 // FE-010: Review Queue badge refresh interval
 const SIDEBAR_REFRESH_MS = 60000;
 
-function Sidebar() {
+function Sidebar({ isOpen, onClose }) {
     const [failedCount, setFailedCount] = useState(0);
     const location = useLocation();
 
@@ -76,66 +76,70 @@ function Sidebar() {
     ];
 
     return (
-        <aside
-            className="side"
-            id="side"
-        >
-            <div className="side-top">
-                <span className="glyph">
-                    8K
-                </span>
+        <>
+            <div className={`scrim ${isOpen ? 'show' : ''}`} onClick={onClose} style={{ zIndex: 65 }} />
+            <aside
+                className={`side ${isOpen ? 'show' : ''}`}
+                id="side"
+            >
+                <div className="side-top">
+                    <span className="glyph">
+                        8K
+                    </span>
 
-                <div>
-                    <h1>
-                        SIGINT Station
-                    </h1>
+                    <div>
+                        <h1>
+                            SIGINT Station
+                        </h1>
 
-                    <div className="sub">
-                        portal
+                        <div className="sub">
+                            portal
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <nav>
-                {menu.map((item) => (
-                    <NavLink
-                        key={item.name}
-                        to={item.path}
-                        className={({ isActive }) =>
-                            isActive
-                                ? "nav-item active"
-                                : "nav-item"
-                        }
-                    >
-                        <span>
-                            {item.name}
-                        </span>
-
-                        {item.count > 0 && (
-                            <span className="count">
-                                {item.count}
+                <nav>
+                    {menu.map((item) => (
+                        <NavLink
+                            key={item.name}
+                            to={item.path}
+                            onClick={onClose}
+                            className={({ isActive }) =>
+                                isActive
+                                    ? "nav-item active"
+                                    : "nav-item"
+                            }
+                        >
+                            <span>
+                                {item.name}
                             </span>
-                        )}
-                    </NavLink>
-                ))}
-            </nav>
 
-            <div className="side-user">
-                <div className="avatar">
-                    VS
-                </div>
+                            {item.count > 0 && (
+                                <span className="count">
+                                    {item.count}
+                                </span>
+                            )}
+                        </NavLink>
+                    ))}
+                </nav>
 
-                <div style={{ flex: 1 }}>
-                    <div className="nm">
-                        Vikram Sethi
+                <div className="side-user">
+                    <div className="avatar">
+                        VS
                     </div>
 
-                    <div className="rl">
-                        principal
+                    <div style={{ flex: 1 }}>
+                        <div className="nm">
+                            Vikram Sethi
+                        </div>
+
+                        <div className="rl">
+                            principal
+                        </div>
                     </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+        </>
     );
 }
 

@@ -75,7 +75,8 @@ function Login() {
             <form
                 onSubmit={submit}
                 style={{
-                    width: 340,
+                    width: "100%",
+                    maxWidth: 340,
                     padding: 28,
                     background: "var(--panel)",
                     border: "1px solid var(--line)",
