@@ -63,6 +63,12 @@ function Schedule() {
     const [monthlyOnWeek, setMonthlyOnWeek] = useState("Second");
     const [monthlyOnDay, setMonthlyOnDay] = useState("Sunday");
 
+    // Intraday interval (W-037)
+    const [intervalMinutes, setIntervalMinutes] = useState(20);
+    const [windowStart, setWindowStart] = useState("06:00");
+    const [windowEnd, setWindowEnd] = useState("21:00");
+    const [nightlySweep, setNightlySweep] = useState(true);
+
     // Multiple Runs
     const [runCount, setRunCount] = useState(4);
     const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
@@ -362,6 +368,10 @@ function Schedule() {
                     if(d.monthly_on_day) setMonthlyOnDay(d.monthly_on_day);
                     if(d.run_count) setRunCount(d.run_count);
                     if(d.run_times) setRunTimes(d.run_times);
+                    if(d.interval_minutes) setIntervalMinutes(d.interval_minutes);
+                    if(d.active_window_start) setWindowStart(d.active_window_start);
+                    if(d.active_window_end) setWindowEnd(d.active_window_end);
+                    if(d.nightly_sweep !== undefined) setNightlySweep(d.nightly_sweep);
                 }
             })
             .catch(e => console.error("Failed to load schedule config:", e));
@@ -384,6 +394,10 @@ function Schedule() {
                 monthly_on_day: monthlyOnDay,
                 run_count: runCount,
                 run_times: runTimes,
+                interval_minutes: intervalMinutes,
+                active_window_start: windowStart,
+                active_window_end: windowEnd,
+                nightly_sweep: nightlySweep,
                 is_active: enabled
             });
             setPopupMessage("Schedule saved.");
@@ -428,6 +442,9 @@ function Schedule() {
     let previewRule = "";
     if (freq === "onetime") {
         previewRule = "Once at the scheduled start time";
+    } else if (freq === "interval") {
+        previewRule = `Every ${intervalMinutes} min, Mon-Fri ${windowStart}-${windowEnd} ET`
+            + (nightlySweep ? ", plus nightly sweep 22:30 ET" : "");
     } else if (freq === "daily") {
         previewRule = `Every ${dailyRecur} day(s)`;
     } else if (freq === "weekly") {
@@ -486,6 +503,10 @@ function Schedule() {
                                         monthly_on_day: monthlyOnDay,
                                         run_count: runCount,
                                         run_times: runTimes,
+                                        interval_minutes: intervalMinutes,
+                                        active_window_start: windowStart,
+                                        active_window_end: windowEnd,
+                                        nightly_sweep: nightlySweep,
                                         is_active: newEnabled
                                     });
 
@@ -518,10 +539,10 @@ function Schedule() {
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px", color: "var(--dim)" }}>Settings</label>
 
                             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                                {['onetime', 'daily', 'weekly', 'monthly'].map(f => (
+                                {['onetime', 'interval', 'daily', 'weekly', 'monthly'].map(f => (
                                     <label key={f} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
                                         <input type="radio" name="freq" value={f} checked={freq === f} onChange={() => setFreq(f)} />
-                                        {f === 'onetime' ? 'One time' : f.charAt(0).toUpperCase() + f.slice(1)}
+                                        {f === 'onetime' ? 'One time' : f === 'interval' ? 'Intraday' : f.charAt(0).toUpperCase() + f.slice(1)}
                                     </label>
                                 ))}
                             </div>
@@ -539,6 +560,37 @@ function Schedule() {
 
                             {/* Frequency Specific Settings Box */}
                             <div style={{ backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", borderRadius: "6px", minHeight: "75px" }}>
+
+                                {/* Intraday Interval Settings (W-037 / R-08, R-09) */}
+                                {freq === "interval" && (
+                                    <div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                                            <span style={{ fontSize: "13px" }}>Poll every:</span>
+                                            <select className="search" style={{ width: "110px" }} value={intervalMinutes} onChange={e => setIntervalMinutes(Number(e.target.value))}>
+                                                {[5, 10, 15, 20, 30, 60].map(m => (
+                                                    <option key={m} value={m}>{m} min</option>
+                                                ))}
+                                            </select>
+                                            <span style={{ fontSize: "13px", color: "var(--dim)" }}>Mon-Fri, market time</span>
+                                        </div>
+
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                                            <span style={{ fontSize: "13px" }}>Active window:</span>
+                                            <input type="time" className="search" style={{ width: "110px", padding: "4px 8px" }} value={windowStart} onChange={e => setWindowStart(e.target.value)} />
+                                            <span style={{ fontSize: "13px" }}>to</span>
+                                            <input type="time" className="search" style={{ width: "110px", padding: "4px 8px" }} value={windowEnd} onChange={e => setWindowEnd(e.target.value)} />
+                                        </div>
+
+                                        <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
+                                            <input type="checkbox" checked={nightlySweep} onChange={e => setNightlySweep(e.target.checked)} />
+                                            Nightly catch-up sweep at 22:30 ET (includes weekends)
+                                        </label>
+
+                                        <div className="hint" style={{ marginTop: "10px", fontSize: "12px" }}>
+                                            The window end hour is inclusive, so 21:00 polls through 21:59 ET.
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Daily Settings */}
                                 {freq === "daily" && (
