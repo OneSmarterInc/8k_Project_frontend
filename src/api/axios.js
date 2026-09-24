@@ -2,6 +2,7 @@ import axios from "axios";
 
 import {
     clearSession,
+    getToken,
     setConnectionLost,
 } from "./auth";
 
@@ -17,17 +18,16 @@ const api = axios.create({
 });
 
 
-// W-041: no Authorization header is set any more.
-//
-// The token lives in an HttpOnly cookie that the browser attaches to
-// every same-origin request by itself. Same-origin holds in dev (the
-// Vite proxy forwards /api/*) and in production (frontend and API on
-// one host), which is also why SameSite=Lax is safe against CSRF.
-//
-// If VITE_API_BASE_URL is ever pointed at a DIFFERENT origin, this
-// client needs withCredentials: true, and the backend needs
-// SameSite=None + Secure + CORS_ALLOW_CREDENTIALS. All three together,
-// or the session silently stops working.
+// FE-001: send the login token on every request.
+api.interceptors.request.use((config) => {
+    const token = getToken();
+
+    if (token) {
+        config.headers.Authorization = `Token ${token}`;
+    }
+
+    return config;
+});
 
 
 api.interceptors.response.use(
