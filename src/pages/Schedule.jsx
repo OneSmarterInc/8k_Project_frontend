@@ -66,82 +66,99 @@ function Schedule() {
     // Multiple Runs
     const [runCount, setRunCount] = useState(4);
     const [runTimes, setRunTimes] = useState(["00:00", "06:00", "12:00", "18:00"]);
-    
+
     // SMTP Form State
     const [smtpForm, setSmtpForm] = useState({
-    senderName: "",
-    senderEmail: "",
-    replyToEmail: "",
-    securityProtocol: "TLS",
-    smtpHost: "",
-    smtpPort: "587",
-    smtpUsername: "",
-    smtpPassword: ""
-});
+        senderName: "",
+        senderEmail: "",
+        replyToEmail: "",
+        securityProtocol: "TLS",
+        smtpHost: "",
+        smtpPort: "587",
+        smtpUsername: ""
+    });
+
+    // FE-009: the password lives only on the server (SMTP_PASSWORD in
+    // .env). The UI never sends it; it only shows whether one is set.
+    const [passwordConfigured, setPasswordConfigured] = useState(false);
 
     const handleSmtpChange = (e) => {
         setSmtpForm({ ...smtpForm, [e.target.name]: e.target.value });
     };
+
     useEffect(() => {
-    let cancelled = false;
+        let cancelled = false;
 
-    const loadSmtpConfig = async () => {
-        try {
-            const response = await api.get("/settings/smtp/");
+        const loadSmtpConfig = async () => {
+            try {
+                const response = await api.get("/settings/smtp/");
 
-            if (cancelled) {
-                return;
+                if (cancelled) {
+                    return;
+                }
+
+                const data = response.data || {};
+
+                setSmtpForm({
+                    senderName: data.senderName || "",
+                    senderEmail: data.senderEmail || "",
+                    replyToEmail: data.replyToEmail || "",
+                    securityProtocol: data.securityProtocol || "TLS",
+                    smtpHost: data.smtpHost || "",
+                    smtpPort: data.smtpPort || "587",
+                    smtpUsername: data.smtpUsername || ""
+                });
+
+                setPasswordConfigured(Boolean(data.passwordConfigured));
+
+            } catch (error) {
+                console.error(
+                    "Failed to load SMTP configuration:",
+                    error
+                );
             }
+        };
 
-            const data = response.data || {};
+        loadSmtpConfig();
 
-            setSmtpForm({
-                senderName: data.senderName || "",
-                senderEmail: data.senderEmail || "",
-                replyToEmail: data.replyToEmail || "",
-                securityProtocol: data.securityProtocol || "TLS",
-                smtpHost: data.smtpHost || "",
-                smtpPort: data.smtpPort || "587",
-                smtpUsername: data.smtpUsername || "",
-                smtpPassword: ""
-            });
-
-        } catch (error) {
-            console.error(
-                "Failed to load SMTP configuration:",
-                error
-            );
-        }
-    };
-
-    loadSmtpConfig();
-
-    return () => {
-        cancelled = true;
-    };
-}, []);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const validateSmtpForm = (isTest = false) => {
-        const { senderName, senderEmail, replyToEmail, smtpHost, smtpPort, smtpUsername, smtpPassword } = smtpForm;
-        
+        const { senderName, senderEmail, replyToEmail, smtpHost, smtpPort, smtpUsername } = smtpForm;
+
         if (!senderName || !senderEmail || !smtpHost || !smtpPort || !smtpUsername) {
             return "Please fill in all required fields (Name, Email, Host, Port, Username).";
         }
-        
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(senderEmail)) return "Invalid Sender Email format.";
         if (replyToEmail && !emailRegex.test(replyToEmail)) return "Invalid Reply-To Email format.";
         if (!emailRegex.test(smtpUsername)) return "Invalid SMTP Username (must be an email).";
-        
+
         if (isNaN(smtpPort) || parseInt(smtpPort) <= 0 || parseInt(smtpPort) > 65535) {
             return "SMTP Port must be a valid port number (1-65535).";
         }
 
-        if (isTest && !smtpPassword) {
-            return "Please enter your SMTP Password to run a connection test.";
+        if (isTest && !passwordConfigured) {
+            return "SMTP_PASSWORD is not set on the server. Add it to the backend .env and restart.";
         }
-        
+
         return null;
+    };
+
+    // FE-009: show the backend's validation message (W-034 returns 400
+    // with per-field errors) instead of a generic "status code 400".
+    const smtpErrorText = (err) => {
+        const data = err.response?.data;
+        if (data?.errors) {
+            return Object.entries(data.errors)
+                .map(([field, msgs]) => `${field}: ${[].concat(msgs).join(" ")}`)
+                .join("; ");
+        }
+        return data?.message || data?.detail || err.message;
     };
 
     const handleTestConnection = async () => {
@@ -159,7 +176,7 @@ function Schedule() {
                 setPopupMessage(`Failed: ${response.data.message}`);
             }
         } catch (err) {
-            setPopupMessage(`Error: ${err.message}`);
+            setPopupMessage(`Error: ${smtpErrorText(err)}`);
         }
     };
 
@@ -174,78 +191,78 @@ function Schedule() {
             const response = await api.post("/settings/smtp/?action=save", smtpForm);
             if (response.data.status === "success") {
                 setPopupMessage(`Success: ${response.data.message}`);
-                // Clear password field after save
-                setSmtpForm(prev => ({...prev, smtpPassword: ""}));
             } else {
                 setPopupMessage(`Failed: ${response.data.message}`);
             }
         } catch (err) {
-            setPopupMessage(`Error: ${err.message}`);
+            setPopupMessage(`Error: ${smtpErrorText(err)}`);
         }
     };
-const handleManualRun = async () => {
-    if (runLocked) {
-        return;
-    }
 
-    setStartingUp(true);
-    clearTimeout(startupTimerRef.current);
-
-    try {
-        const result = await triggerRun();
-
-        if (result?.status === "started") {
-            startupTimerRef.current = setTimeout(
-                () => setStartingUp(false),
-                RUN_STARTUP_LOCK_MS
-            );
-
-            setIsRunning(true);
-            setShowLogs(true);
-
-            fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
-
-            setPopupMessage(
-                "Manual run started successfully."
-            );
-
+    const handleManualRun = async () => {
+        if (runLocked) {
             return;
         }
 
-        setStartingUp(false);
+        setStartingUp(true);
+        clearTimeout(startupTimerRef.current);
 
-        if (result?.status === "already_running") {
-            setIsRunning(true);
-            setShowLogs(true);
+        try {
+            const result = await triggerRun();
 
-            fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
+            if (result?.status === "started") {
+                startupTimerRef.current = setTimeout(
+                    () => setStartingUp(false),
+                    RUN_STARTUP_LOCK_MS
+                );
+
+                setIsRunning(true);
+                setShowLogs(true);
+
+                fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
+
+                setPopupMessage(
+                    "Manual run started successfully."
+                );
+
+                return;
+            }
+
+            setStartingUp(false);
+
+            if (result?.status === "already_running") {
+                setIsRunning(true);
+                setShowLogs(true);
+
+                fastPollUntilRef.current = Date.now() + LOG_POLL_STARTUP_GRACE_MS;
+
+                setPopupMessage(
+                    "The SEC watcher is already running."
+                );
+
+                return;
+            }
 
             setPopupMessage(
-                "The SEC watcher is already running."
+                result?.message ||
+                "Unable to determine watcher status."
             );
 
-            return;
+        } catch (error) {
+            setStartingUp(false);
+
+            console.error(
+                "Failed to start manual run:",
+                error
+            );
+
+            setPopupMessage(
+                error.response?.data?.message ||
+                "Failed to start the manual run."
+            );
         }
+    };
 
-        setPopupMessage(
-            result?.message ||
-            "Unable to determine watcher status."
-        );
-
-    } catch (error) {
-        setStartingUp(false);
-
-        console.error(
-            "Failed to start manual run:",
-            error
-        );
-
-        setPopupMessage(
-            error.response?.data?.message ||
-            "Failed to start the manual run."
-        );
-    }
-};
     // FE-006: adaptive log polling.
     // - 1.5 s while a run is active or just started (same as before).
     // - 10 s when idle or when the browser tab is hidden.
@@ -380,27 +397,26 @@ const handleManualRun = async () => {
         }
     };
 
+    const handleRunCountChange = (e) => {
+        const count = Math.min(
+            Math.max(parseInt(e.target.value) || 1, 1),
+            4
+        );
 
-   const handleRunCountChange = (e) => {
-    const count = Math.min(
-        Math.max(parseInt(e.target.value) || 1, 1),
-        4
-    );
+        setRunCount(count);
 
-    setRunCount(count);
+        const newTimes = [];
 
-    const newTimes = [];
+        for (let i = 0; i < count; i++) {
+            const totalHours = i * 6;
 
-    for (let i = 0; i < count; i++) {
-        const totalHours = i * 6;
+            const hour = String(totalHours).padStart(2, "0");
 
-        const hour = String(totalHours).padStart(2, "0");
+            newTimes.push(`${hour}:00`);
+        }
 
-        newTimes.push(`${hour}:00`);
-    }
-
-    setRunTimes(newTimes);
-};
+        setRunTimes(newTimes);
+    };
 
     const handleRunTimeChange = (idx, val) => {
         const newTimes = [...runTimes];
@@ -429,14 +445,14 @@ const handleManualRun = async () => {
         <section className="content page" id="page-schedule">
             <div className="auto-banner" style={{ background: enabled ? "rgba(90,201,153,.06)" : "rgba(226,105,90,.06)", borderColor: enabled ? "rgba(90,201,153,.3)" : "rgba(226,105,90,.3)" }}>
                 <span className="bd" style={{ background: enabled ? "var(--green)" : "var(--red)" }}></span>
-               <div>
-    Automation is <b>{enabled ? "enabled" : "paused"}</b>.
-    {
-        enabled
-            ? " Scheduled runs will follow the saved automation schedule."
-            : " Start automation to resume scheduled runs."
-    }
-</div>
+                <div>
+                    Automation is <b>{enabled ? "enabled" : "paused"}</b>.
+                    {
+                        enabled
+                            ? " Scheduled runs will follow the saved automation schedule."
+                            : " Start automation to resume scheduled runs."
+                    }
+                </div>
             </div>
 
             <div className="card" style={{ marginBottom: "24px" }}>
@@ -453,7 +469,7 @@ const handleManualRun = async () => {
                             <input type="checkbox" style={{ opacity: 0, width: 0, height: 0 }} checked={enabled} onChange={async (e) => {
                                 setShowLogs(false);
                                 const newEnabled = e.target.checked;
-                                
+
                                 try {
                                     await api.post("/settings/schedule/", {
                                         frequency: freq,
@@ -472,21 +488,21 @@ const handleManualRun = async () => {
                                         run_times: runTimes,
                                         is_active: newEnabled
                                     });
-                                    
+
                                     if (newEnabled) startAutomation();
                                     else pauseAutomation();
                                 } catch (err) {
                                     setPopupMessage("Failed to sync toggle with server.");
                                 }
                             }} />
-                            <span style={{ 
-                                position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0, 
-                                backgroundColor: enabled ? "var(--accent)" : "rgba(255,255,255,0.1)", 
-                                transition: ".4s", borderRadius: "24px" 
+                            <span style={{
+                                position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0,
+                                backgroundColor: enabled ? "var(--accent)" : "rgba(255,255,255,0.1)",
+                                transition: ".4s", borderRadius: "24px"
                             }}>
                                 <span style={{
-                                    position: "absolute", content: '""', height: "18px", width: "18px", 
-                                    left: enabled ? "23px" : "3px", bottom: "3px", backgroundColor: "#fff", 
+                                    position: "absolute", content: '""', height: "18px", width: "18px",
+                                    left: enabled ? "23px" : "3px", bottom: "3px", backgroundColor: "#fff",
                                     transition: ".4s", borderRadius: "50%", boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
                                 }}></span>
                             </span>
@@ -494,13 +510,13 @@ const handleManualRun = async () => {
                     </div>
                 </div>
                 <div className="card-b" style={{ padding: "16px 24px" }}>
-                    
+
                     <div style={{ display: "flex", gap: "24px" }}>
-                        
+
                         {/* LEFT PANEL: Radio buttons */}
                         <div style={{ flex: "0 0 130px", borderRight: "1px solid rgba(255,255,255,0.05)", paddingRight: "16px" }}>
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px", color: "var(--dim)" }}>Settings</label>
-                            
+
                             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                                 {['onetime', 'daily', 'weekly', 'monthly'].map(f => (
                                     <label key={f} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
@@ -513,7 +529,7 @@ const handleManualRun = async () => {
 
                         {/* RIGHT PANEL: Settings for frequency */}
                         <div style={{ flex: 1 }}>
-                            
+
                             {/* Global Start Date/Time */}
                             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
                                 <span style={{ fontSize: "13px", fontWeight: "500", width: "50px" }}>Start:</span>
@@ -523,7 +539,7 @@ const handleManualRun = async () => {
 
                             {/* Frequency Specific Settings Box */}
                             <div style={{ backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", borderRadius: "6px", minHeight: "75px" }}>
-                                
+
                                 {/* Daily Settings */}
                                 {freq === "daily" && (
                                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -533,65 +549,66 @@ const handleManualRun = async () => {
                                     </div>
                                 )}
 
-                            {/* Weekly Settings */}
-                            {freq === "weekly" && (
-                                <div>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-                                        <span style={{ fontSize: "13px" }}>Recur every:</span>
-                                        <input type="number" className="search" style={{ width: "70px", textAlign: "center" }} min="1" value={weeklyRecur} onChange={e => setWeeklyRecur(e.target.value)} />
-                                        <span style={{ fontSize: "13px" }}>weeks on:</span>
-                                    </div>
-                                    
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
-                                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                                            <label key={day} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px" }}>
-                                                <input type="checkbox" checked={weeklyDays[day.toLowerCase().substring(0,3)]} onChange={e => setWeeklyDays({...weeklyDays, [day.toLowerCase().substring(0,3)]: e.target.checked})} />
-                                                {day}
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                {/* Weekly Settings */}
+                                {freq === "weekly" && (
+                                    <div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+                                            <span style={{ fontSize: "13px" }}>Recur every:</span>
+                                            <input type="number" className="search" style={{ width: "70px", textAlign: "center" }} min="1" value={weeklyRecur} onChange={e => setWeeklyRecur(e.target.value)} />
+                                            <span style={{ fontSize: "13px" }}>weeks on:</span>
+                                        </div>
 
-                            {/* Monthly Settings */}
-                            {freq === "monthly" && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                        <span style={{ fontSize: "13px", width: "60px" }}>Months:</span>
-                                        <select className="search" style={{ width: "200px" }} value={monthlyMonths} onChange={e => setMonthlyMonths(e.target.value)}>
-                                            <option>All months</option>
-                                            <option>Select months...</option>
-                                        </select>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+                                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                                                <label key={day} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px" }}>
+                                                    <input type="checkbox" checked={weeklyDays[day.toLowerCase().substring(0,3)]} onChange={e => setWeeklyDays({...weeklyDays, [day.toLowerCase().substring(0,3)]: e.target.checked})} />
+                                                    {day}
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
+                                )}
 
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'days' ? 1 : 0.5 }}>
-                                        <input type="radio" name="monthlyType" value="days" checked={monthlyType === 'days'} onChange={() => setMonthlyType('days')} />
-                                        <span style={{ fontSize: "13px", width: "40px" }}>Days:</span>
-                                        <input type="text" className="search" style={{ flex: 1 }} value={monthlyDays} onChange={e => setMonthlyDays(e.target.value)} disabled={monthlyType !== 'days'} />
-                                    </div>
+                                {/* Monthly Settings */}
+                                {freq === "monthly" && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                            <span style={{ fontSize: "13px", width: "60px" }}>Months:</span>
+                                            <select className="search" style={{ width: "200px" }} value={monthlyMonths} onChange={e => setMonthlyMonths(e.target.value)}>
+                                                <option>All months</option>
+                                                <option>Select months...</option>
+                                            </select>
+                                        </div>
 
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'on' ? 1 : 0.5 }}>
-                                        <input type="radio" name="monthlyType" value="on" checked={monthlyType === 'on'} onChange={() => setMonthlyType('on')} />
-                                        <span style={{ fontSize: "13px", width: "40px" }}>On:</span>
-                                        <select className="search" style={{ width: "120px" }} value={monthlyOnWeek} onChange={e => setMonthlyOnWeek(e.target.value)} disabled={monthlyType !== 'on'}>
-                                            <option>First</option>
-                                            <option>Second</option>
-                                            <option>Third</option>
-                                            <option>Fourth</option>
-                                            <option>Last</option>
-                                        </select>
-                                        <select className="search" style={{ width: "140px" }} value={monthlyOnDay} onChange={e => setMonthlyOnDay(e.target.value)} disabled={monthlyType !== 'on'}>
-                                            <option>Sunday</option>
-                                            <option>Monday</option>
-                                            <option>Tuesday</option>
-                                            <option>Wednesday</option>
-                                            <option>Thursday</option>
-                                            <option>Friday</option>
-                                            <option>Saturday</option>
-                                        </select>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'days' ? 1 : 0.5 }}>
+                                            <input type="radio" name="monthlyType" value="days" checked={monthlyType === 'days'} onChange={() => setMonthlyType('days')} />
+                                            <span style={{ fontSize: "13px", width: "40px" }}>Days:</span>
+                                            <input type="text" className="search" style={{ flex: 1 }} value={monthlyDays} onChange={e => setMonthlyDays(e.target.value)} disabled={monthlyType !== 'days'} />
+                                        </div>
+
+                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", opacity: monthlyType === 'on' ? 1 : 0.5 }}>
+                                            <input type="radio" name="monthlyType" value="on" checked={monthlyType === 'on'} onChange={() => setMonthlyType('on')} />
+                                            <span style={{ fontSize: "13px", width: "40px" }}>On:</span>
+                                            <select className="search" style={{ width: "120px" }} value={monthlyOnWeek} onChange={e => setMonthlyOnWeek(e.target.value)} disabled={monthlyType !== 'on'}>
+                                                <option>First</option>
+                                                <option>Second</option>
+                                                <option>Third</option>
+                                                <option>Fourth</option>
+                                                <option>Last</option>
+                                            </select>
+                                            <select className="search" style={{ width: "140px" }} value={monthlyOnDay} onChange={e => setMonthlyOnDay(e.target.value)} disabled={monthlyType !== 'on'}>
+                                                <option>Sunday</option>
+                                                <option>Monday</option>
+                                                <option>Tuesday</option>
+                                                <option>Wednesday</option>
+                                                <option>Thursday</option>
+                                                <option>Friday</option>
+                                                <option>Saturday</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+
                                 {/* One Time Settings */}
                                 {freq === "onetime" && (
                                     <div style={{ fontSize: "13px", color: "var(--dim)" }}>
@@ -660,7 +677,7 @@ const handleManualRun = async () => {
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Sender Email</label>
                             <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="senderEmail" value={smtpForm.senderEmail} onChange={handleSmtpChange} />
                         </div>
-                        
+
                         <div>
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Reply-To Email</label>
                             <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="replyToEmail" value={smtpForm.replyToEmail} onChange={handleSmtpChange} />
@@ -689,10 +706,15 @@ const handleManualRun = async () => {
                         </div>
                         <div>
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Password</label>
-                            <input type="password" className="search" style={{ width: "100%", padding: "4px 8px" }} placeholder="Leave blank to keep existing" name="smtpPassword" value={smtpForm.smtpPassword} onChange={handleSmtpChange} />
+                            {/* FE-009: read-only status; the password is set on the server only. */}
+                            <div style={{ padding: "4px 8px", fontSize: "12px", color: passwordConfigured ? "var(--green)" : "var(--amber)" }}>
+                                {passwordConfigured
+                                    ? "Set on server (SMTP_PASSWORD)"
+                                    : "Not set: add SMTP_PASSWORD to the backend .env"}
+                            </div>
                         </div>
                     </div>
-                    
+
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
                         <button className="btn" onClick={handleTestConnection}>Test Connection</button>
                         <button className="btn btn-primary" onClick={handleSaveConfig}>Save Configuration</button>
@@ -701,20 +723,20 @@ const handleManualRun = async () => {
             </div>
 
             <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "flex-end", alignItems: "center" }}>
-               <button
-    className="btn"
-    style={{
-        marginLeft: "auto",
-        border: `1px solid ${runLocked ? "rgba(255,255,255,0.2)" : "var(--accent)"}`,
-        color: runLocked ? "var(--dim)" : "var(--accent)",
-        cursor: runLocked ? "not-allowed" : "pointer",
-        opacity: runLocked ? 0.6 : 1
-    }}
-    disabled={runLocked}
-    onClick={handleManualRun}
->
-    {isRunning ? "● Running..." : (startingUp ? "● Starting..." : "▶ Run Now")}
-</button>
+                <button
+                    className="btn"
+                    style={{
+                        marginLeft: "auto",
+                        border: `1px solid ${runLocked ? "rgba(255,255,255,0.2)" : "var(--accent)"}`,
+                        color: runLocked ? "var(--dim)" : "var(--accent)",
+                        cursor: runLocked ? "not-allowed" : "pointer",
+                        opacity: runLocked ? 0.6 : 1
+                    }}
+                    disabled={runLocked}
+                    onClick={handleManualRun}
+                >
+                    {isRunning ? "● Running..." : (startingUp ? "● Starting..." : "▶ Run Now")}
+                </button>
             </div>
 
             <div className="card" style={{ marginTop: "24px", marginBottom: "24px" }}>
@@ -723,11 +745,11 @@ const handleManualRun = async () => {
                         <h3 style={{ margin: 0, display: "inline-block" }}>Live Automation Logs</h3>
                         <span className="hint" style={{ marginLeft: "8px" }}>Terminal</span>
                     </div>
-                    <span style={{ 
-                        fontSize: "12px", 
+                    <span style={{
+                        fontSize: "12px",
                         fontWeight: "600",
-                        padding: "4px 10px", 
-                        borderRadius: "12px", 
+                        padding: "4px 10px",
+                        borderRadius: "12px",
                         backgroundColor: isRunning ? "rgba(102, 217, 168, 0.1)" : (enabled ? "rgba(255, 255, 255, 0.05)" : "rgba(235, 163, 54, 0.1)"),
                         color: isRunning ? "#66d9a8" : (enabled ? "var(--dim)" : "#eba336"),
                         border: `1px solid ${isRunning ? "rgba(102, 217, 168, 0.2)" : (enabled ? "rgba(255, 255, 255, 0.1)" : "rgba(235, 163, 54, 0.2)")}`
@@ -736,14 +758,14 @@ const handleManualRun = async () => {
                     </span>
                 </div>
                 <div className="card-b" style={{ padding: "0" }}>
-                    <div 
+                    <div
                         ref={terminalRef}
-                        style={{ 
-                            height: "300px", 
-                            overflowY: "auto", 
-                            backgroundColor: "#05080c", 
-                            color: "#66d9a8", 
-                            fontFamily: "monospace", 
+                        style={{
+                            height: "300px",
+                            overflowY: "auto",
+                            backgroundColor: "#05080c",
+                            color: "#66d9a8",
+                            fontFamily: "monospace",
                             padding: "16px",
                             fontSize: "13px",
                             whiteSpace: "pre-wrap",
@@ -756,7 +778,7 @@ const handleManualRun = async () => {
             </div>
 
             {popupMessage && (
-                <div 
+                <div
                     style={{
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
                         backgroundColor: 'rgba(5, 8, 12, 0.4)', backdropFilter: 'blur(2px)',
@@ -764,7 +786,7 @@ const handleManualRun = async () => {
                     }}
                     onClick={() => setPopupMessage(null)}
                 >
-                    <div 
+                    <div
                         style={{
                             backgroundColor: 'var(--card-bg, #161b22)', padding: '24px', borderRadius: '8px',
                             boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)', border: '1px solid var(--border, rgba(255,255,255,0.1))',
