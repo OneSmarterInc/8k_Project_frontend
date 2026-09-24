@@ -75,6 +75,7 @@ function FilingTable({ filings }) {
                                         }
                                     </span>
 
+                                     {/* 8-K/A DISABLED: amendment badges removed.
                                     {filing.amends_accession && (
                                         <div style={{
                                             fontSize: "10px",
@@ -93,7 +94,8 @@ function FilingTable({ filings }) {
                                         }}>
                                             ⚠️ Outdated
                                         </div>
-                                    )}
+                                     )} 
+                                    */}
 
                                 </td>
 

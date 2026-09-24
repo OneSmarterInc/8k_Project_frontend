@@ -38,6 +38,7 @@ function FilingCard({filing}){
 
             </div>
 
+            {/* 8-K/A DISABLED: amendment badges removed.
             {filing.amends_accession && (
                 <div style={{ backgroundColor: 'rgba(255, 204, 0, 0.2)', color: '#ffcc00', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', margin: '0 20px', borderRadius: '4px', border: '1px solid rgba(255, 204, 0, 0.4)' }}>
                     AMENDMENT TO {filing.amends_accession}
@@ -49,6 +50,7 @@ function FilingCard({filing}){
         ⚠️ OUTDATED: SEE AMENDMENT {filing.amended_by_accession.join(", ")}
     </div>
 )}
+*/}
             <div className="filing-meta">
 
 

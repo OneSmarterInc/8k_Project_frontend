@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { getFilings, resolveAmendment } from "../services/filingService";
+// 8-K/A DISABLED: resolveAmendment removed.
+// import { getFilings, resolveAmendment } from "../services/filingService";
+import { getFilings } from "../services/filingService";
 
-const AMBIGUOUS_AMENDMENT_TARGET = "AMBIGUOUS_AMENDMENT_TARGET";
+// const AMBIGUOUS_AMENDMENT_TARGET = "AMBIGUOUS_AMENDMENT_TARGET";  // 8-K/A DISABLED
 const formatStage = (stage) => {
     if (!stage) {
         return "Unknown";
@@ -58,14 +60,16 @@ function ReviewQueue() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const [selectedCandidates, setSelectedCandidates] =
-        useState({});
+    // 8-K/A DISABLED: amendment-resolution state removed.
+    // const [selectedCandidates, setSelectedCandidates] =
+    //     useState({});
+    //
+    // const [resolvingId, setResolvingId] =
+    //     useState(null);
 
-    const [resolvingId, setResolvingId] =
-        useState(null);
-
-    const [actionError, setActionError] =
-        useState("");
+    // 8-K/A DISABLED: only the amendment-resolve flow set this.
+    // const [actionError, setActionError] =
+    //     useState("");
 
 
     useEffect(() => {
@@ -104,125 +108,126 @@ function ReviewQueue() {
 }, []);
 
 
-    const isAmbiguousAmendment = (filing) => (
-        filing.form === "8-K/A"
-        && filing.flag === true
-        && filing.flag_reason
-            === AMBIGUOUS_AMENDMENT_TARGET
-        && !filing.amends_accession
-    );
+    // 8-K/A DISABLED: amendment helpers and resolve handler removed.
+    // const isAmbiguousAmendment = (filing) => (
+    //     filing.form === "8-K/A"
+    //     && filing.flag === true
+    //     && filing.flag_reason
+    //         === AMBIGUOUS_AMENDMENT_TARGET
+    //     && !filing.amends_accession
+    // );
 
 
-    const handleCandidateChange = (
-        filingId,
-        value
-    ) => {
+    // const handleCandidateChange = (
+    //     filingId,
+    //     value
+    // ) => {
 
-        setSelectedCandidates(
-            (current) => ({
-                ...current,
-                [filingId]: value
-            })
-        );
+    //     setSelectedCandidates(
+    //         (current) => ({
+    //             ...current,
+    //             [filingId]: value
+    //         })
+    //     );
 
-        setActionError("");
-    };
+    //     setActionError("");
+    // };
 
 
-    const handleResolve = async (filing) => {
+    // const handleResolve = async (filing) => {
 
-        const selectedOriginalId =
-            selectedCandidates[
-                filing.id
-            ];
+    //     const selectedOriginalId =
+    //         selectedCandidates[
+    //             filing.id
+    //         ];
 
-        if (!selectedOriginalId) {
+    //     if (!selectedOriginalId) {
 
-            setActionError(
-                "Select an original 8-K before resolving the amendment."
-            );
+    //         setActionError(
+    //             "Select an original 8-K before resolving the amendment."
+    //         );
 
-            return;
-        }
+    //         return;
+    //     }
 
-        try {
+    //     try {
 
-            setResolvingId(
-                filing.id
-            );
+    //         setResolvingId(
+    //             filing.id
+    //         );
 
-            setActionError("");
+    //         setActionError("");
 
-            await resolveAmendment(
-                filing.id,
-                Number(
-                    selectedOriginalId
-                )
-            );
+    //         await resolveAmendment(
+    //             filing.id,
+    //             Number(
+    //                 selectedOriginalId
+    //             )
+    //         );
 
-            /*
-                Once resolved, the filing is no longer
-                part of the ambiguous review queue.
-            */
-            setFilings(
-                (current) =>
-                    current.filter(
-                        (item) =>
-                            item.id
-                            !== filing.id
-                    )
-            );
+    //         /*
+    //             Once resolved, the filing is no longer
+    //             part of the ambiguous review queue.
+    //         */
+    //         setFilings(
+    //             (current) =>
+    //                 current.filter(
+    //                     (item) =>
+    //                         item.id
+    //                         !== filing.id
+    //                 )
+    //         );
 
-            setSelectedCandidates(
-                (current) => {
+    //         setSelectedCandidates(
+    //             (current) => {
 
-                    const next = {
-                        ...current
-                    };
+    //                 const next = {
+    //                     ...current
+    //                 };
 
-                    delete next[
-                        filing.id
-                    ];
+    //                 delete next[
+    //                     filing.id
+    //                 ];
 
-                    return next;
-                }
-            );
+    //                 return next;
+    //             }
+    //         );
 
-        } catch (err) {
+    //     } catch (err) {
 
-            console.error(
-                "Failed to resolve amendment",
-                err
-            );
+    //         console.error(
+    //             "Failed to resolve amendment",
+    //             err
+    //         );
 
-            if (
-                err?.response?.status === 401
-                || err?.response?.status === 403
-            ) {
-                setActionError(
-                    "Administrator authentication is required to resolve amendments."
-                );
+    //         if (
+    //             err?.response?.status === 401
+    //             || err?.response?.status === 403
+    //         ) {
+    //             setActionError(
+    //                 "Administrator authentication is required to resolve amendments."
+    //             );
 
-            } else if (
-                err?.response?.data?.message
-            ) {
-                setActionError(
-                    err.response.data.message
-                );
+    //         } else if (
+    //             err?.response?.data?.message
+    //         ) {
+    //             setActionError(
+    //                 err.response.data.message
+    //             );
 
-            } else {
-                setActionError(
-                    "Unable to resolve amendment."
-                );
-            }
+    //         } else {
+    //             setActionError(
+    //                 "Unable to resolve amendment."
+    //             );
+    //         }
 
-        } finally {
+    //     } finally {
 
-            setResolvingId(
-                null
-            );
-        }
-    };
+    //         setResolvingId(
+    //             null
+    //         );
+    //     }
+    // };
 
 
     if (loading) {
@@ -266,6 +271,7 @@ function ReviewQueue() {
                 Review Queue
             </h2>
 
+            {/* 8-K/A DISABLED: amendment action-error banner removed.
             {actionError && (
                 <div
                     style={{
@@ -279,6 +285,7 @@ function ReviewQueue() {
                     {actionError}
                 </div>
             )}
+            */}
 
             {filings.length === 0 ? (
 
@@ -312,8 +319,9 @@ function ReviewQueue() {
                             margin: 0
                         }}
                     >
+                        {/* 8-K/A DISABLED: was "There are currently no failed filings or ambiguous amendments requiring review." */}
                         There are currently no failed filings
-                        or ambiguous amendments requiring review.
+                        requiring review.
                     </p>
                 </div>
 
@@ -357,19 +365,20 @@ function ReviewQueue() {
                                 {filings.map(
                                     (filing) => {
 
-                                        const ambiguous =
-                                            isAmbiguousAmendment(
-                                                filing
-                                            );
-
-                                        const candidates =
-                                            Array.isArray(
-                                                filing
-                                                    .candidate_originals
-                                            )
-                                                ? filing
-                                                    .candidate_originals
-                                                : [];
+                                        // 8-K/A DISABLED: ambiguous-amendment rows removed.
+                                        // const ambiguous =
+                                        //     isAmbiguousAmendment(
+                                        //         filing
+                                        //     );
+                                        //
+                                        // const candidates =
+                                        //     Array.isArray(
+                                        //         filing
+                                        //             .candidate_originals
+                                        //     )
+                                        //         ? filing
+                                        //             .candidate_originals
+                                        //         : [];
 
                                         return (
                                             <tr
@@ -411,30 +420,27 @@ function ReviewQueue() {
                                                 <td>
                                                     <span
                                                         className={
-                                                            ambiguous
-                                                                ? "rstat"
-                                                                : "rstat r-fail"
+                                                            /* 8-K/A DISABLED: ambiguous ? "rstat" : */
+                                                            "rstat r-fail"
                                                         }
                                                     >
                                                         {
-                                                            ambiguous
-                                                                ? "Amendment Review"
-                                                                : formatStage(
-                                                                    filing
-                                                                        .failure_stage
-                                                                )
+                                                            /* 8-K/A DISABLED: ambiguous ? "Amendment Review" : */
+                                                            formatStage(
+                                                                filing
+                                                                    .failure_stage
+                                                            )
                                                         }
                                                     </span>
                                                 </td>
 
                                                 <td>
                                                     {
-                                                        ambiguous
-                                                            ? "Ambiguous Amendment Target"
-                                                            : formatReason(
-                                                                filing
-                                                                    .failure_code
-                                                            )
+                                                        /* 8-K/A DISABLED: ambiguous ? "Ambiguous Amendment Target" : */
+                                                        formatReason(
+                                                            filing
+                                                                .failure_code
+                                                        )
                                                     }
                                                 </td>
 
@@ -449,6 +455,7 @@ function ReviewQueue() {
                                                     }}
                                                 >
                                                     {
+                                                        /* 8-K/A DISABLED: candidate-original picker removed.
                                                         ambiguous
                                                             ? (
                                                                 <div>
@@ -513,26 +520,20 @@ function ReviewQueue() {
                                                                     )}
                                                                 </div>
                                                             )
-                                                            : (
-                                                                filing
-                                                                    .failure_message
-                                                                || "Unknown error"
-                                                            )
+                                                        */
+                                                        filing
+                                                            .failure_message
+                                                        || "Unknown error"
                                                     }
                                                 </td>
 
                                                 <td>
                                                     {
-                                                        ambiguous
-                                                            ? (
-                                                                filing
-                                                                    .report_date
-                                                                || "-"
-                                                            )
-                                                            : formatDate(
-                                                                filing
-                                                                    .failure_created_at
-                                                            )
+                                                        /* 8-K/A DISABLED: ambiguous ? (filing.report_date || "-") : */
+                                                        formatDate(
+                                                            filing
+                                                                .failure_created_at
+                                                        )
                                                     }
                                                 </td>
 
@@ -560,6 +561,7 @@ function ReviewQueue() {
                                                             </a>
                                                         )}
 
+                                                        {/* 8-K/A DISABLED: Resolve Amendment button removed.
                                                         {ambiguous && (
                                                             <button
                                                                 type="button"
@@ -585,6 +587,7 @@ function ReviewQueue() {
                                                                 }
                                                             </button>
                                                         )}
+                                                        */}
                                                     </div>
                                                 </td>
                                             </tr>
