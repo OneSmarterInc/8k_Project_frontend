@@ -4,6 +4,7 @@ import api from "../api/axios";
 
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
+import SessionBar from "../components/SessionBar";
 
 function MainLayout(){
     const [enabled, setEnabled] = useState(false);
@@ -93,6 +94,7 @@ function MainLayout(){
             <Sidebar />
 
             <main>
+                <SessionBar />
                 <Topbar />
 
                 <Outlet

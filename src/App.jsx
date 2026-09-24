@@ -11,6 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import ReviewQueue from "./pages/ReviewQueue";
 import Schedule from "./pages/Schedule";
 import RunHistory from "./pages/RunHistory";
+import RequireAuth from "./components/RequireAuth";
+import Login from "./pages/Login";
 
 
 function App(){
@@ -21,7 +23,15 @@ function App(){
 
             <Routes>
 
-                <Route element={<MainLayout />}>
+                <Route path="/login" element={<Login />} />
+
+                <Route
+                    element={
+                        <RequireAuth>
+                            <MainLayout />
+                        </RequireAuth>
+                    }
+                >
 
                     <Route
                         path="/"
