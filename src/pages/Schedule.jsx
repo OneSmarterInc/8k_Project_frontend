@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../api/axios";
 
+import LogTerminal from "../components/schedule/LogTerminal";
+import NotificationModal from "../components/schedule/NotificationModal";
+import SmtpSettings from "../components/schedule/SmtpSettings";
+
 // FE-006: log polling intervals
 const LOG_POLL_ACTIVE_MS = 1500;           // while a run is active (same as before)
 const LOG_POLL_IDLE_MS = 10000;            // when nothing is running
@@ -468,26 +472,6 @@ function Schedule() {
         setRunTimes(newTimes);
     };
 
-    // Which schedule inputs the backend actually uses for this frequency
-    // (see schedule_manager.py): run times only for daily/weekly/monthly.
-    const usesRunTimes = ["daily", "weekly", "monthly"].includes(freq);
-
-    const FREQ_LABELS = {
-        onetime: "One time",
-        interval: "Intraday",
-        daily: "Daily",
-        weekly: "Weekly",
-        monthly: "Monthly"
-    };
-
-    const formatTime12h = (t) => {
-        if (!t) return "-";
-        let [h, m] = t.split(':');
-        const suffix = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return `${String(h).padStart(2, '0')}:${m} ${suffix}`;
-    };
-
     // Generate preview text
     let previewRule = "";
     if (freq === "onetime") {
@@ -722,10 +706,8 @@ function Schedule() {
                         </div>
                     </div>
 
-                    {/* Multiple Run Times block: only daily / weekly / monthly use
-                        run times. One time uses the Start date/time; Intraday uses
-                        the poll interval and active window. */}
-                    {usesRunTimes && (
+                    {/* Multiple Run Times block */}
+                    {freq !== "onetime" && (
                         <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                                 <h4 style={{ margin: 0, fontSize: "13px" }}>Run Time(s)</h4>
@@ -750,21 +732,15 @@ function Schedule() {
                     <div style={{ marginTop: "16px", backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "6px", padding: "12px 16px" }}>
                         <h4 style={{ margin: "0 0 8px 0", fontSize: "12px", color: "var(--accent)" }}>Schedule Preview</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
-                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Frequency:</span> <span style={{ color: "var(--text)", fontWeight: "500" }}>{FREQ_LABELS[freq] || freq}</span></div>
-                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Runs:</span> <span style={{ color: "var(--text)" }}>{
-                                freq === "onetime"
-                                    ? "Once"
-                                    : freq === "interval"
-                                        ? `Every ${intervalMinutes} min in the active window`
-                                        : `${runCount} time(s) on each scheduled day`
-                            }</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Frequency:</span> <span style={{ color: "var(--text)", fontWeight: "500" }}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Runs:</span> <span style={{ color: "var(--text)" }}>{runCount} time(s) on each scheduled day</span></div>
                             <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run On:</span> <span style={{ color: "var(--text)" }}>{previewRule}</span></div>
-                            {freq === "onetime" && (
-                                <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run At:</span> <span style={{ color: "var(--text)" }}>{startDate || "-"} {formatTime12h(startTime)}</span></div>
-                            )}
-                            {usesRunTimes && (
-                                <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run Times:</span> <span style={{ color: "var(--text)" }}>{runTimes.map(formatTime12h).join(", ")}</span></div>
-                            )}
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run Times:</span> <span style={{ color: "var(--text)" }}>{runTimes.map(t => {
+                                let [h, m] = t.split(':');
+                                let suffix = h >= 12 ? 'PM' : 'AM';
+                                h = h % 12 || 12;
+                                return `${String(h).padStart(2,'0')}:${m} ${suffix}`;
+                            }).join(", ")}</span></div>
                         </div>
                     </div>
 
@@ -775,72 +751,15 @@ function Schedule() {
                 </div>
             </div>
 
-            <div className="card" style={{ marginBottom: "20px" }}>
-                <div className="card-h"><h3>SMTP Configurations</h3></div>
-                <div className="card-b" style={{ padding: "16px 24px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Sender Name</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="senderName" value={smtpForm.senderName} onChange={handleSmtpChange} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Sender Email</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="senderEmail" value={smtpForm.senderEmail} onChange={handleSmtpChange} />
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Reply-To Email</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="replyToEmail" value={smtpForm.replyToEmail} onChange={handleSmtpChange} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>Security Protocol</label>
-                            <select className="search" style={{ width: "100%", padding: "4px 8px" }} name="securityProtocol" value={smtpForm.securityProtocol} onChange={handleSmtpChange}>
-                                <option value="TLS">TLS</option>
-                                <option value="SSL">SSL</option>
-                                <option value="STARTTLS">STARTTLS</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Host</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpHost" value={smtpForm.smtpHost} onChange={handleSmtpChange} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Port</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpPort" value={smtpForm.smtpPort} onChange={handleSmtpChange} />
-                        </div>
-
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Username</label>
-                            <input type="text" className="search" style={{ width: "100%", padding: "4px 8px" }} name="smtpUsername" value={smtpForm.smtpUsername} onChange={handleSmtpChange} />
-                        </div>
-                        <div>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Password</label>
-                            <input
-                                type="password"
-                                className="search"
-                                style={{ width: "100%", padding: "4px 8px" }}
-                                name="smtpPassword"
-                                autoComplete="new-password"
-                                placeholder={passwordConfigured ? "Saved (leave blank to keep)" : "Enter SMTP password"}
-                                value={smtpPassword}
-                                onChange={(e) => setSmtpPassword(e.target.value)}
-                            />
-                            {/* Status only: the saved password is never sent back to the browser. */}
-                            <div style={{ padding: "4px 2px 0", fontSize: "11px", color: passwordConfigured ? "var(--green)" : "var(--dim)" }}>
-                                {passwordConfigured
-                                    ? "Password saved."
-                                    : "No password saved yet."}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
-                        <button className="btn" onClick={handleTestConnection}>Test Connection</button>
-                        <button className="btn btn-primary" onClick={handleSaveConfig}>Save Configuration</button>
-                    </div>
-                </div>
-            </div>
+            <SmtpSettings
+                smtpForm={smtpForm}
+                handleSmtpChange={handleSmtpChange}
+                smtpPassword={smtpPassword}
+                setSmtpPassword={setSmtpPassword}
+                passwordConfigured={passwordConfigured}
+                handleTestConnection={handleTestConnection}
+                handleSaveConfig={handleSaveConfig}
+            />
 
             <div className="save-bar" style={{ display: "flex", gap: "24px", justifyContent: "flex-end", alignItems: "center" }}>
                 <button
@@ -859,69 +778,18 @@ function Schedule() {
                 </button>
             </div>
 
-            <div className="card" style={{ marginTop: "24px", marginBottom: "24px" }}>
-                <div className="card-h" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <h3 style={{ margin: 0, display: "inline-block" }}>Live Automation Logs</h3>
-                        <span className="hint" style={{ marginLeft: "8px" }}>Terminal</span>
-                    </div>
-                    <span style={{
-                        fontSize: "12px",
-                        fontWeight: "600",
-                        padding: "4px 10px",
-                        borderRadius: "12px",
-                        backgroundColor: isRunning ? "rgba(102, 217, 168, 0.1)" : (enabled ? "rgba(255, 255, 255, 0.05)" : "rgba(235, 163, 54, 0.1)"),
-                        color: isRunning ? "#66d9a8" : (enabled ? "var(--dim)" : "#eba336"),
-                        border: `1px solid ${isRunning ? "rgba(102, 217, 168, 0.2)" : (enabled ? "rgba(255, 255, 255, 0.1)" : "rgba(235, 163, 54, 0.2)")}`
-                    }}>
-                        {isRunning ? "● Running Now" : (enabled ? "○ Standby (Scheduled)" : "⏸ Scheduler Paused")}
-                    </span>
-                </div>
-                <div className="card-b" style={{ padding: "0" }}>
-                    <div
-                        ref={terminalRef}
-                        style={{
-                            height: "300px",
-                            overflowY: "auto",
-                            backgroundColor: "#05080c",
-                            color: "#66d9a8",
-                            fontFamily: "monospace",
-                            padding: "16px",
-                            fontSize: "13px",
-                            whiteSpace: "pre-wrap",
-                            borderTop: "1px solid rgba(255,255,255,0.05)"
-                        }}
-                    >
-                        {showLogs ? logs : (enabled ? "Waiting for next scheduled trigger time..." : "Automation is currently disabled. Toggle ON to resume background schedule.")}
-                    </div>
-                </div>
-            </div>
+            <LogTerminal
+                logs={logs}
+                showLogs={showLogs}
+                isRunning={isRunning}
+                enabled={enabled}
+                terminalRef={terminalRef}
+            />
 
-            {popupMessage && (
-                <div
-                    style={{
-                        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                        backgroundColor: 'rgba(5, 8, 12, 0.4)', backdropFilter: 'blur(2px)',
-                        zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center'
-                    }}
-                    onClick={() => setPopupMessage(null)}
-                >
-                    <div
-                        style={{
-                            backgroundColor: 'var(--card-bg, #161b22)', padding: '24px', borderRadius: '8px',
-                            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)', border: '1px solid var(--border, rgba(255,255,255,0.1))',
-                            minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '16px'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3 style={{ margin: 0, color: 'var(--text, #a3b1c6)' }}>System Notification</h3>
-                        <p style={{ margin: 0, color: 'var(--dim, #6e7a8a)' }}>{popupMessage}</p>
-                        <button className="btn btn-primary" style={{ alignSelf: 'flex-end' }} onClick={() => setPopupMessage(null)}>
-                            OK
-                        </button>
-                    </div>
-                </div>
-            )}
+            <NotificationModal
+                message={popupMessage}
+                onClose={() => setPopupMessage(null)}
+            />
         </section>
     );
 }
