@@ -9,6 +9,7 @@ import {
 } from "../services/filingService";
 
 import FilingWorkspace from "../components/FilingWorkspace";
+import QueueExports from "../components/QueueExports";
 import StatStrip from "../components/StatStrip";
 
 import FilingCard from "../components/FilingCard";
@@ -187,6 +188,9 @@ const [timeframe, setTimeframe] = useState("ALL");
                 filings={timeframeFilteredFilings}
                 timeframe={timeframe}
             />
+
+            {/* W-038: browse and download the daily capture queue CSVs. */}
+            <QueueExports />
 
             <FilingWorkspace
                 filings={filteredFilings}
