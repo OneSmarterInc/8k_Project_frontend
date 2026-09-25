@@ -16,6 +16,13 @@ const api = axios.create({
     // SameSite=None, Secure and CORS_ALLOW_CREDENTIALS on the server).
     withCredentials: true,
 
+    // P-05: echo Django's csrftoken cookie back as X-CSRFToken on
+    // unsafe methods. Axios does this natively - it reads the cookie
+    // and sets the header itself. Harmless when the backend is not
+    // enforcing CSRF, which is why the frontend half can land first.
+    xsrfCookieName: "csrftoken",
+    xsrfHeaderName: "X-CSRFToken",
+
     headers: {
         "Content-Type": "application/json"
     }

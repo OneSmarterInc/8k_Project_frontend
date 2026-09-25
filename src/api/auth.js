@@ -22,6 +22,23 @@ const USER_KEY = "watcher_user";
  * calling a function that now returns null, every page redirects to
  * /login and the app is unusable.
  */
+/*
+ * P-05: fetch a csrftoken cookie before the first POST.
+ *
+ * Called once at app start, including on the login page - login is
+ * itself a POST, so the cookie has to exist before it. Failures are
+ * swallowed: if the endpoint is unavailable the app must still load,
+ * and the backend only enforces CSRF when explicitly switched on.
+ */
+export async function primeCsrfToken() {
+    try {
+        const { default: api } = await import("./axios");
+        await api.get("/auth/csrf/");
+    } catch {
+        // Deliberately silent.
+    }
+}
+
 export function hasSession() {
     return getUser() !== null;
 }
