@@ -468,6 +468,26 @@ function Schedule() {
         setRunTimes(newTimes);
     };
 
+    // Which schedule inputs the backend actually uses for this frequency
+    // (see schedule_manager.py): run times only for daily/weekly/monthly.
+    const usesRunTimes = ["daily", "weekly", "monthly"].includes(freq);
+
+    const FREQ_LABELS = {
+        onetime: "One time",
+        interval: "Intraday",
+        daily: "Daily",
+        weekly: "Weekly",
+        monthly: "Monthly"
+    };
+
+    const formatTime12h = (t) => {
+        if (!t) return "-";
+        let [h, m] = t.split(':');
+        const suffix = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${String(h).padStart(2, '0')}:${m} ${suffix}`;
+    };
+
     // Generate preview text
     let previewRule = "";
     if (freq === "onetime") {
@@ -702,8 +722,10 @@ function Schedule() {
                         </div>
                     </div>
 
-                    {/* Multiple Run Times block */}
-                    {freq !== "onetime" && (
+                    {/* Multiple Run Times block: only daily / weekly / monthly use
+                        run times. One time uses the Start date/time; Intraday uses
+                        the poll interval and active window. */}
+                    {usesRunTimes && (
                         <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "12px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                                 <h4 style={{ margin: 0, fontSize: "13px" }}>Run Time(s)</h4>
@@ -728,15 +750,21 @@ function Schedule() {
                     <div style={{ marginTop: "16px", backgroundColor: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "6px", padding: "12px 16px" }}>
                         <h4 style={{ margin: "0 0 8px 0", fontSize: "12px", color: "var(--accent)" }}>Schedule Preview</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
-                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Frequency:</span> <span style={{ color: "var(--text)", fontWeight: "500" }}>{freq.charAt(0).toUpperCase() + freq.slice(1)}</span></div>
-                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Runs:</span> <span style={{ color: "var(--text)" }}>{runCount} time(s) on each scheduled day</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Frequency:</span> <span style={{ color: "var(--text)", fontWeight: "500" }}>{FREQ_LABELS[freq] || freq}</span></div>
+                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Runs:</span> <span style={{ color: "var(--text)" }}>{
+                                freq === "onetime"
+                                    ? "Once"
+                                    : freq === "interval"
+                                        ? `Every ${intervalMinutes} min in the active window`
+                                        : `${runCount} time(s) on each scheduled day`
+                            }</span></div>
                             <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run On:</span> <span style={{ color: "var(--text)" }}>{previewRule}</span></div>
-                            <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run Times:</span> <span style={{ color: "var(--text)" }}>{runTimes.map(t => {
-                                let [h, m] = t.split(':');
-                                let suffix = h >= 12 ? 'PM' : 'AM';
-                                h = h % 12 || 12;
-                                return `${String(h).padStart(2,'0')}:${m} ${suffix}`;
-                            }).join(", ")}</span></div>
+                            {freq === "onetime" && (
+                                <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run At:</span> <span style={{ color: "var(--text)" }}>{startDate || "-"} {formatTime12h(startTime)}</span></div>
+                            )}
+                            {usesRunTimes && (
+                                <div><span style={{ color: "var(--dim)", width: "80px", display: "inline-block" }}>Run Times:</span> <span style={{ color: "var(--text)" }}>{runTimes.map(formatTime12h).join(", ")}</span></div>
+                            )}
                         </div>
                     </div>
 
