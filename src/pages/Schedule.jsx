@@ -84,8 +84,11 @@ function Schedule() {
         smtpUsername: ""
     });
 
-    // FE-009: the password lives only on the server (SMTP_PASSWORD in
-    // .env). The UI never sends it; it only shows whether one is set.
+    // SMTP password: entered here and saved by the backend as
+    // SMTP_PASSWORD in backend/.env. It is never sent back to the
+    // browser, so the field always starts empty.
+    // Blank on save = keep the current password.
+    const [smtpPassword, setSmtpPassword] = useState("");
     const [passwordConfigured, setPasswordConfigured] = useState(false);
 
     const handleSmtpChange = (e) => {
@@ -148,8 +151,21 @@ function Schedule() {
             return "SMTP Port must be a valid port number (1-65535).";
         }
 
-        if (isTest && !passwordConfigured) {
-            return "SMTP_PASSWORD is not set on the server. Add it to the backend .env and restart.";
+        const hasControlChars = [...smtpPassword].some((ch) => {
+            const code = ch.charCodeAt(0);
+            return code < 32 || code === 127;
+        });
+
+        if (hasControlChars) {
+            return "SMTP Password must not contain line breaks or control characters.";
+        }
+
+        if (smtpPassword.length > 256) {
+            return "SMTP Password is too long (max 256 characters).";
+        }
+
+        if (isTest && !smtpPassword && !passwordConfigured) {
+            return "Please enter the SMTP Password to run a connection test.";
         }
 
         return null;
@@ -175,7 +191,12 @@ function Schedule() {
         }
         setPopupMessage("Initiating SMTP Test...");
         try {
-            const response = await api.post("/settings/smtp/?action=test", smtpForm);
+            // The typed password (if any) is used for this test only;
+            // the backend always connects to the SAVED host and port.
+            const response = await api.post("/settings/smtp/?action=test", {
+                ...smtpForm,
+                smtpPassword
+            });
             if (response.data.status === "success") {
                 setPopupMessage(`Success: ${response.data.message}`);
             } else {
@@ -194,9 +215,18 @@ function Schedule() {
         }
         setPopupMessage("Saving Configuration...");
         try {
-            const response = await api.post("/settings/smtp/?action=save", smtpForm);
+            // Blank smtpPassword = keep the current password.
+            const response = await api.post("/settings/smtp/?action=save", {
+                ...smtpForm,
+                smtpPassword
+            });
             if (response.data.status === "success") {
                 setPopupMessage(`Success: ${response.data.message}`);
+                if (smtpPassword) {
+                    setPasswordConfigured(true);
+                }
+                // Never keep the password in the page after saving.
+                setSmtpPassword("");
             } else {
                 setPopupMessage(`Failed: ${response.data.message}`);
             }
@@ -758,11 +788,21 @@ function Schedule() {
                         </div>
                         <div>
                             <label style={{ display: "block", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", color: "var(--dim)" }}>SMTP Password</label>
-                            {/* FE-009: read-only status; the password is set on the server only. */}
-                            <div style={{ padding: "4px 8px", fontSize: "12px", color: passwordConfigured ? "var(--green)" : "var(--amber)" }}>
+                            <input
+                                type="password"
+                                className="search"
+                                style={{ width: "100%", padding: "4px 8px" }}
+                                name="smtpPassword"
+                                autoComplete="new-password"
+                                placeholder={passwordConfigured ? "Saved (leave blank to keep)" : "Enter SMTP password"}
+                                value={smtpPassword}
+                                onChange={(e) => setSmtpPassword(e.target.value)}
+                            />
+                            {/* Status only: the saved password is never sent back to the browser. */}
+                            <div style={{ padding: "4px 2px 0", fontSize: "11px", color: passwordConfigured ? "var(--green)" : "var(--dim)" }}>
                                 {passwordConfigured
-                                    ? "Set on server (SMTP_PASSWORD)"
-                                    : "Not set: add SMTP_PASSWORD to the backend .env"}
+                                    ? "Password saved."
+                                    : "No password saved yet."}
                             </div>
                         </div>
                     </div>
