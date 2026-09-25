@@ -6,11 +6,24 @@
  * "connection lost" banner without prop drilling.
  */
 
-const TOKEN_KEY = "watcher_token";
 const USER_KEY = "watcher_user";
 
-export function getToken() {
-    return localStorage.getItem(TOKEN_KEY);
+/*
+ * I-07: is there a logged-in session?
+ *
+ * The token is an HttpOnly cookie and is invisible to JavaScript by
+ * design, so the client can no longer test for it directly. The stored
+ * user object is only a client-side marker that a login happened; the
+ * cookie is what actually authenticates, and the server rejects the
+ * request if it is missing or expired.
+ *
+ * This REPLACES the old getToken() truthiness check. RequireAuth.jsx
+ * and Login.jsx both used getToken() that way - if either is left
+ * calling a function that now returns null, every page redirects to
+ * /login and the app is unusable.
+ */
+export function hasSession() {
+    return getUser() !== null;
 }
 
 export function getUser() {
@@ -22,13 +35,16 @@ export function getUser() {
 }
 
 export function saveSession(token, user) {
-    localStorage.setItem(TOKEN_KEY, token);
+    // I-07: "token" is accepted and deliberately ignored. The backend
+    // already delivered it as an HttpOnly cookie on the login response.
     localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function clearSession() {
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+
+    // I-07: clear any token left behind by a pre-cookie build.
+    localStorage.removeItem("watcher_token");
 }
 
 // ---- connection state (FE-010) ----------------------------------------

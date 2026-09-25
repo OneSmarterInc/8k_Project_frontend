@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import api from "../api/axios";
-import { getToken, saveSession } from "../api/auth";
+import { hasSession, saveSession } from "../api/auth";
 
 // FE-001: token login against POST /api/auth/login/.
 function Login() {
@@ -14,7 +14,7 @@ function Login() {
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
 
-    if (getToken()) {
+    if (hasSession()) {
         return <Navigate to="/" replace />;
     }
 
