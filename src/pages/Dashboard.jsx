@@ -9,6 +9,7 @@ import {
 } from "../services/filingService";
 
 import FilingWorkspace from "../components/FilingWorkspace";
+import Pagination from "../components/Pagination";
 import QueueExports from "../components/QueueExports";
 import StatStrip from "../components/StatStrip";
 
@@ -33,6 +34,12 @@ function Dashboard(){
     Filter and sorting states
 */
 const [search,setSearch] = useState("");
+
+    // I-01: which slice of the filtered list is rendered. The full
+    // list is still fetched and still filtered in full - only the
+    // number of cards on screen changes.
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
 
 const [formFilter,setFormFilter] = useState("ALL");
 const [timeframe, setTimeframe] = useState("ALL");
@@ -89,6 +96,12 @@ const [timeframe, setTimeframe] = useState("ALL");
     },[]);
 
 
+    // I-01: any change to the filters starts a new result set.
+    useEffect(() => {
+        setPage(1);
+    }, [search, formFilter, timeframe, pageSize]);
+
+
     const filterByTimeframe = (filingsList) => {
         if (timeframe === "ALL") return filingsList;
         const now = new Date();
@@ -136,6 +149,20 @@ const [timeframe, setTimeframe] = useState("ALL");
         .sort((a,b)=>{
             return new Date(b.accepted_at) - new Date(a.accepted_at);
         });
+
+    // I-01: land back on page 1 whenever the result set changes, so a
+    // narrowed search can never leave the user on an empty page.
+    const totalPages = Math.max(
+        Math.ceil(filteredFilings.length / pageSize),
+        1
+    );
+
+    const currentPage = Math.min(page, totalPages);
+
+    const pagedFilings = filteredFilings.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+    );
 
 
 
@@ -193,7 +220,16 @@ const [timeframe, setTimeframe] = useState("ALL");
             <QueueExports />
 
             <FilingWorkspace
-                filings={filteredFilings}
+                filings={pagedFilings}
+            />
+
+            {/* I-01: previous / next controls for the filings list. */}
+            <Pagination
+                page={currentPage}
+                pageSize={pageSize}
+                totalItems={filteredFilings.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
             />
 
 
