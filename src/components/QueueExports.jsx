@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
     downloadQueueExport,
-    getQueueExports
+    getQueueExports,
+    regenerateQueueExports
 } from "../services/queueExportService";
 
 /*
@@ -69,6 +70,47 @@ function QueueExports() {
     useEffect(() => {
         if (open) load();
     }, [open, load]);
+
+    const [regenerating, setRegenerating] = useState(false);
+    const [notice, setNotice] = useState("");
+
+    /*
+        A scheduled export can be missed - if the scheduler was down at
+        22:30, the day's file stays at whatever it held when it last
+        ran. This re-runs the export for the visible range and reloads
+        the list. It cannot overwrite: a changed day gets a new
+        revision, an unchanged day gets nothing.
+    */
+    const handleRegenerate = async () => {
+
+        if (regenerating || loading) return;
+
+        setRegenerating(true);
+        setError("");
+        setNotice("");
+
+        try {
+            const result = await regenerateQueueExports(startDate, endDate);
+            const lines = result?.output || [];
+
+            const written = lines.filter(l => l.includes("wrote")).length;
+
+            setNotice(
+                written > 0
+                    ? `${written} export${written === 1 ? "" : "s"} written.`
+                    : "Everything already up to date."
+            );
+
+            await load();
+        } catch (err) {
+            setError(
+                err?.response?.data?.detail ||
+                "Could not regenerate exports."
+            );
+        } finally {
+            setRegenerating(false);
+        }
+    };
 
     const handleDownload = async (filename) => {
 
@@ -187,6 +229,19 @@ function QueueExports() {
                             {loading ? "Loading..." : "Apply range"}
                         </button>
 
+                        <button
+                            className="btn"
+                            onClick={handleRegenerate}
+                            disabled={regenerating || loading}
+                            title="Re-run the export for this range. Never overwrites: a changed day gets a new revision."
+                            style={{
+                                cursor: (regenerating || loading) ? "wait" : "pointer",
+                                opacity: (regenerating || loading) ? 0.6 : 1
+                            }}
+                        >
+                            {regenerating ? "Regenerating..." : "↻ Regenerate"}
+                        </button>
+
                         {files.length > 0 && (
                             <span
                                 className="hint"
@@ -198,6 +253,18 @@ function QueueExports() {
                             </span>
                         )}
                     </div>
+
+                    {notice && !error && (
+                        <div
+                            style={{
+                                fontSize: "12px",
+                                color: "var(--green, #66d9a8)",
+                                marginBottom: "12px"
+                            }}
+                        >
+                            {notice}
+                        </div>
+                    )}
 
                     {error && (
                         <div
@@ -242,23 +309,44 @@ function QueueExports() {
                                 {files.map((file) => (
                                     <tr
                                         key={file.filename}
-                                        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+                                        style={{
+                                            borderTop: "1px solid rgba(255,255,255,0.05)",
+                                            // A superseded revision is dimmed so the current
+                                            // picture of a day is obvious at a glance. Both
+                                            // stay downloadable: the older one is the record
+                                            // of what was known when it was written.
+                                            opacity: file.is_current === false ? 0.45 : 1
+                                        }}
                                     >
                                         <td style={{ padding: "8px 4px" }}>
                                             {file.date}
-                                            {file.revision > 1 && (
+                                            {file.is_current === false ? (
                                                 <span
                                                     style={{
                                                         marginLeft: "8px",
                                                         fontSize: "11px",
                                                         padding: "2px 6px",
                                                         borderRadius: "10px",
-                                                        color: "#eba336",
-                                                        border: "1px solid rgba(235,163,54,0.3)"
+                                                        color: "var(--dim)",
+                                                        border: "1px solid rgba(255,255,255,0.12)"
                                                     }}
-                                                    title="A later export changed this day"
+                                                    title={`Superseded by a later export (revision ${file.revision + 1} or higher). Kept as the record of what was known when it was written.`}
                                                 >
-                                                    rev {file.revision}
+                                                    superseded · rev {file.revision}
+                                                </span>
+                                            ) : (
+                                                <span
+                                                    style={{
+                                                        marginLeft: "8px",
+                                                        fontSize: "11px",
+                                                        padding: "2px 6px",
+                                                        borderRadius: "10px",
+                                                        color: "var(--green, #66d9a8)",
+                                                        border: "1px solid rgba(102,217,168,0.3)"
+                                                    }}
+                                                    title="The current picture of this day"
+                                                >
+                                                    current{file.revision > 1 ? ` · rev ${file.revision}` : ""}
                                                 </span>
                                             )}
                                         </td>

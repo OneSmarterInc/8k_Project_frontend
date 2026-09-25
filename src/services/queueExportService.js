@@ -51,3 +51,21 @@ export async function downloadQueueExport(filename) {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 }
+
+/*
+    Re-run the export for a date range.
+
+    The one write in this service, and deliberate: export_queue never
+    overwrites, so this either writes a new revision when the day's
+    rows have changed or writes nothing at all. It exists so a missed
+    scheduled export can be recovered without shell access.
+*/
+export async function regenerateQueueExports(startDate, endDate) {
+
+    const response = await api.post(
+        "/queue/exports/regenerate/",
+        { start: startDate, end: endDate }
+    );
+
+    return response.data;
+}
