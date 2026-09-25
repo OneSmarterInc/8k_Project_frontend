@@ -10,6 +10,7 @@ import MainLayout from "./layouts/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import ReviewQueue from "./pages/ReviewQueue";
 import Schedule from "./pages/Schedule";
+import MfaSetup from "./pages/MfaSetup";
 import RunHistory from "./pages/RunHistory";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
@@ -46,6 +47,12 @@ function App(){
                     <Route
                         path="/schedule"
                         element={<Schedule />}
+                    />
+
+                    {/* MFA-01: authenticator enrolment. */}
+                    <Route
+                        path="/security"
+                        element={<MfaSetup />}
                     />
 
                     <Route
