@@ -126,8 +126,8 @@ function MfaSetup() {
                         onClick={begin}
                         disabled={busy}
                         style={{
-                            border: "1px solid var(--accent)",
-                            color: "var(--accent)",
+                            border: "1px solid var(--cyan)",
+                            color: "var(--cyan)",
                             cursor: busy ? "wait" : "pointer",
                         }}
                     >
@@ -198,8 +198,8 @@ function MfaSetup() {
                             disabled={busy}
                             style={{
                                 marginTop: 16,
-                                border: "1px solid var(--accent)",
-                                color: "var(--accent)",
+                                border: "1px solid var(--cyan)",
+                                color: "var(--cyan)",
                                 cursor: busy ? "wait" : "pointer",
                             }}
                         >

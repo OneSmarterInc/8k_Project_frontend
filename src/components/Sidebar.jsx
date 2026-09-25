@@ -65,10 +65,6 @@ function Sidebar({ isOpen, onClose }) {
         {
             name: "Run History",
             path: "/history"
-        },
-        {
-            name: "Security",
-            path: "/security"
         }
 
         /*

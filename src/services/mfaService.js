@@ -50,3 +50,31 @@ export async function verifyMfaLogin(mfaToken, code) {
     });
     return response.data;
 }
+
+
+/*
+    MFA-02: forced first-time enrolment, DURING login.
+
+    These two take the signed sign-in handle rather than a session,
+    because at this point there is no session - the password was
+    accepted but nothing was issued.
+*/
+export async function startLoginEnrolment(mfaToken) {
+    const response = await api.post("/auth/login/enrol/", {
+        mfa_token: mfaToken,
+    });
+    return response.data;
+}
+
+/*
+    Confirms the device AND completes the sign-in in one call. The
+    session only exists once the code proves the QR was really scanned,
+    so abandoning this screen leaves no device and no session.
+*/
+export async function confirmLoginEnrolment(mfaToken, code) {
+    const response = await api.post("/auth/login/enrol/confirm/", {
+        mfa_token: mfaToken,
+        code,
+    });
+    return response.data;
+}
