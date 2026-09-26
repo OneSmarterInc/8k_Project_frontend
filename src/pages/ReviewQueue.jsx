@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 // 8-K/A DISABLED: resolveAmendment removed.
 // import { getFilings, resolveAmendment } from "../services/filingService";
 import { getFilings } from "../services/filingService";
@@ -627,7 +628,11 @@ function FailuresQueue({ tabs }) {
 */
 function ReviewQueue() {
     const isStaff = Boolean(getUser()?.is_staff);
-    const [tab, setTab] = useState("failures");
+    // "/review?tab=classification" (from a Filings card) opens that tab.
+    const [searchParams] = useSearchParams();
+    const [tab, setTab] = useState(
+        searchParams.get("tab") === "classification" ? "classification" : "failures"
+    );
 
     const tabs = isStaff ? (
         <div className="filters" style={{ marginBottom: "16px" }}>

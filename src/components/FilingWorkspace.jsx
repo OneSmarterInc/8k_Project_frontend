@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { formatET, formatItems } from "../utils/formatET";
+import { getUser } from "../api/auth";
+import InterpreterPanel from "./InterpreterPanel";
+import { isInterpretable } from "../utils/interpreter";
 
 function FilingWorkspace({ filings }) {
     const [activeMailFiling, setActiveMailFiling] = useState(null);
 
     const closeModal = () => setActiveMailFiling(null);
+
+    // Guide Part 5: the API sends `interpretation` to staff only. For
+    // staff, 8-K / 8-K/A cards always show the panel ("Not classified
+    // yet" until the Interpreter has run); other forms never do.
+    const isStaff = Boolean(getUser()?.is_staff);
+    const showInterpreter = (filing) => isStaff && isInterpretable(filing.form);
 
     return (
         <>
@@ -29,10 +38,19 @@ function FilingWorkspace({ filings }) {
                                 <span className="acc">{filing.accession_number}</span>
                             </div>
 
-                            {/* AI summary from backend */}
-                            <p className="fsum" style={{ textAlign: "justify", whiteSpace: "pre-wrap", lineHeight: "1.6", color: "var(--text-color, #e0e0e0)" }}>
-                                {filing.summary ? filing.summary.replace(/\[CHUNK[^\]]*\]/gi, '').trim() : "Summary pending"}
-                            </p>
+                            {/* AI summary (left) + Interpreter result (right, staff only).
+                                Wraps under the summary on narrow screens. */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "flex-start" }}>
+                                <p className="fsum" style={{ textAlign: "justify", whiteSpace: "pre-wrap", lineHeight: "1.6", color: "var(--text-color, #e0e0e0)", flex: "1 1 420px", minWidth: 0 }}>
+                                    {filing.summary ? filing.summary.replace(/\[CHUNK[^\]]*\]/gi, '').trim() : "Summary pending"}
+                                </p>
+
+                                {showInterpreter(filing) && (
+                                    <div style={{ flex: "0 1 320px", minWidth: "260px", marginTop: "11px", marginLeft: "auto" }}>
+                                        <InterpreterPanel interpretation={filing.interpretation} />
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Filing metadata (FE-005) */}
                             <div className="fmeta">
@@ -121,6 +139,15 @@ function FilingWorkspace({ filings }) {
                             <div style={{ color: 'var(--text, #a3b1c6)', fontSize: '14px', lineHeight: '1.6', textAlign: 'justify', whiteSpace: 'pre-wrap', marginBottom: '40px' }}>
                                 {activeMailFiling.summary ? activeMailFiling.summary.replace(/\[CHUNK[^\]]*\]/gi, '').trim() : "Summary generation pending..."}
                             </div>
+
+                            {/* Guide Part 5: same block the email carries, from the database. */}
+                            {showInterpreter(activeMailFiling) && (
+                                <InterpreterPanel
+                                    variant="mail"
+                                    interpretation={activeMailFiling.interpretation}
+                                    emailSentAt={activeMailFiling.email_sent_at}
+                                />
+                            )}
 
                             <h3 style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '1px', color: 'var(--dim, #6e7a8a)', textTransform: 'uppercase', marginBottom: '12px' }}>
                                 Company / Filing Details

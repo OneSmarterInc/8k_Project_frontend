@@ -4,6 +4,7 @@ import {
     getTaxonomy,
     overrideClassification
 } from "../services/filingService";
+import { eventDate, formatAmounts } from "../utils/interpreter";
 
 /*
     Guide Part 5: Classification tab of the Review Queue (staff only).
@@ -20,16 +21,6 @@ function formatConfidence(value) {
     return typeof value === "number" ? value.toFixed(2) : "—";
 }
 
-function formatAmount(value) {
-    if (typeof value !== "number") {
-        return value ?? "—";
-    }
-    return value.toLocaleString("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0
-    });
-}
 
 function firstError(data, fallback) {
     if (!data || typeof data !== "object") {
@@ -270,8 +261,8 @@ function ClassificationReview({ tabs }) {
                                 )}
                                 <div style={{ marginTop: "6px", fontFamily: "var(--mono)", fontSize: "12px", color: "var(--ink-3)" }}>
                                     Counterparty: {facts.counterparty ?? "—"}
-                                    {" · "}Amount: {formatAmount(facts.amount_usd)}
-                                    {" · "}Effective: {facts.effective_date ?? "—"}
+                                    {" · "}Amount: {formatAmounts(facts).join("; ") || "—"}
+                                    {" · "}Date: {eventDate(facts) ?? "—"}
                                 </div>
                             </div>
 
