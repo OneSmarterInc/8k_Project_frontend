@@ -38,19 +38,17 @@ function FilingWorkspace({ filings }) {
                                 <span className="acc">{filing.accession_number}</span>
                             </div>
 
-                            {/* AI summary (left) + Interpreter result (right, staff only).
-                                Wraps under the summary on narrow screens. */}
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "flex-start" }}>
-                                <p className="fsum" style={{ textAlign: "justify", whiteSpace: "pre-wrap", lineHeight: "1.6", color: "var(--text-color, #e0e0e0)", flex: "1 1 420px", minWidth: 0 }}>
-                                    {filing.summary ? filing.summary.replace(/\[CHUNK[^\]]*\]/gi, '').trim() : "Summary pending"}
-                                </p>
+                            {/* AI summary from backend. Full card width so it lines up with
+                                the Interpreter section below; left-aligned because the summary
+                                is bullet points (justify stretches gaps on wide lines). */}
+                            <p className="fsum" style={{ maxWidth: "none", textAlign: "left", whiteSpace: "pre-wrap", lineHeight: "1.6", color: "var(--text-color, #e0e0e0)" }}>
+                                {filing.summary ? filing.summary.replace(/\[CHUNK[^\]]*\]/gi, '').trim() : "Summary pending"}
+                            </p>
 
-                                {showInterpreter(filing) && (
-                                    <div style={{ flex: "0 1 320px", minWidth: "260px", marginTop: "11px", marginLeft: "auto" }}>
-                                        <InterpreterPanel interpretation={filing.interpretation} />
-                                    </div>
-                                )}
-                            </div>
+                            {/* Guide Part 5: Interpreter result under the summary (staff, 8-K only). */}
+                            {showInterpreter(filing) && (
+                                <InterpreterPanel interpretation={filing.interpretation} />
+                            )}
 
                             {/* Filing metadata (FE-005) */}
                             <div className="fmeta">

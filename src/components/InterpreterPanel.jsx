@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { eventDate, formatAmounts } from "../utils/interpreter";
 
@@ -83,7 +84,7 @@ function ConfidenceBar({ value, warn }) {
                 background: "var(--line, #213640)",
                 borderRadius: "3px",
                 overflow: "hidden",
-                margin: "4px 0 10px"
+                margin: "0"
             }}
             aria-label={`Confidence ${formatConfidence(value)}`}
         >
@@ -98,29 +99,73 @@ function ConfidenceBar({ value, warn }) {
     );
 }
 
+/*
+    Card variant: a section under the summary.
+
+      INTERPRETER  unverified                     [FINANCING]  Material   Confidence 0.90 ▓▓▓▓▓▓▓▓░
+      ───────────────────────────────────────────────────────────────────────────────────────────────
+      COUNTERPARTY            AMOUNT                                EVENT DATE
+      Deutsche Bank AG, …     EUR 625,000,000 (4.250% Notes 2031)   2026-09-24
+                              EUR 500,000,000 (4.750% Notes 2036)
+      ───────────────────────────────────────────────────────────────────────────────────────────────
+      Reasoning, two lines; "Show more" only when it is actually cut off.
+
+    Routine answers have no deal facts, so the facts grid is hidden for them.
+*/
 function CardPanel({ interpretation: interp }) {
-    const box = {
+    const [expanded, setExpanded] = useState(false);
+    const [clipped, setClipped] = useState(false);
+    const reasoningRef = useRef(null);
+
+    const reasoning = interp?.reasoning || "";
+
+    // Show the toggle only when two lines genuinely cut the text off.
+    useEffect(() => {
+        const el = reasoningRef.current;
+        if (!el || expanded) {
+            return undefined;
+        }
+        const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [reasoning, expanded]);
+
+    const section = {
+        marginTop: "16px",
         border: "1px solid var(--line, #213640)",
-        borderRadius: "8px",
-        padding: "12px 14px",
-        fontSize: "12.5px",
+        borderRadius: "10px",
+        background: "var(--panel-2, #12232b)",
+        fontSize: "13px",
         color: "var(--ink-2, #a3b1c6)",
-        background: "var(--panel-2, #12232b)"
+        overflow: "hidden"
     };
 
-    const title = (
-        <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "10px" }}>
+    const pad = { padding: "12px 16px" };
+    const divider = { borderTop: "1px solid var(--line-soft, rgba(255,255,255,0.06))" };
+    const smallLabel = {
+        fontSize: "10.5px",
+        fontWeight: 600,
+        letterSpacing: "0.6px",
+        textTransform: "uppercase",
+        color: "var(--ink-3, #6e7a8a)",
+        marginBottom: "4px"
+    };
+    const muted = { color: "var(--ink-3, #6e7a8a)" };
+
+    const titleBlock = (
+        <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
             <span style={{ ...heading, margin: 0 }}>Interpreter</span>
-            <span style={{ fontSize: "10.5px", color: "var(--ink-3, #6e7a8a)" }}>unverified</span>
+            <span style={{ fontSize: "10.5px", ...muted }}>unverified</span>
         </div>
     );
 
     if (!interp) {
         return (
-            <div style={box}>
-                {title}
-                <div style={{ color: "var(--ink-3, #6e7a8a)" }}>
-                    Not classified yet.
+            <div style={section}>
+                <div style={{ ...pad, display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "baseline" }}>
+                    {titleBlock}
+                    <span style={muted}>Not classified yet.</span>
                 </div>
             </div>
         );
@@ -132,68 +177,127 @@ function CardPanel({ interpretation: interp }) {
 
     const shownMaterial = override ? override.is_material : interp.is_material;
     const shownCategory = override ? override.category : interp.category;
+    const amounts = formatAmounts(facts);
 
-    const factRow = (label, value) => (
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", padding: "2px 0" }}>
-            <span style={{ color: "var(--ink-3, #6e7a8a)" }}>{label}</span>
-            <span style={{ fontFamily: "var(--mono)", textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
+    const verdict = (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 16px", marginLeft: "auto" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <span className={`tag ${warn ? "t-flag" : shownMaterial ? "t-mat" : "t-rout"}`}>
+                    {answerLabel(shownMaterial, shownCategory)}
+                </span>
+                <span style={muted}>
+                    {shownMaterial === true ? "Material" : shownMaterial === false ? "Routine" : ""}
+                </span>
+            </span>
+
+            {override ? (
+                <span>
+                    <span style={{ color: "var(--green, #5ac999)" }}>Reviewed by {override.reviewer}</span>
+                    <span style={{ ...muted, marginLeft: "8px" }}>
+                        model said {answerLabel(interp.is_material, interp.category)} at {formatConfidence(interp.confidence)}
+                    </span>
+                </span>
+            ) : (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
+                    <span style={muted}>Confidence</span>
+                    <span style={{ fontFamily: "var(--mono)", color: warn ? "var(--amber, #e2a44a)" : "var(--ink, #e7eeeb)" }}>
+                        {formatConfidence(interp.confidence)}
+                    </span>
+                    <span style={{ width: "110px" }}>
+                        <ConfidenceBar value={interp.confidence} warn={warn} />
+                    </span>
+                </span>
+            )}
+
+            {warn && (
+                <Link to="/review?tab=classification" style={{ color: "var(--amber, #e2a44a)", fontSize: "12.5px" }}>
+                    Waiting for review →
+                </Link>
+            )}
+        </div>
+    );
+
+    const fact = (title, content) => (
+        <div style={{ minWidth: 0 }}>
+            <div style={smallLabel}>{title}</div>
+            <div style={{ color: "var(--ink, #e7eeeb)", lineHeight: 1.5, overflowWrap: "anywhere" }}>
+                {content}
+            </div>
         </div>
     );
 
     return (
-        <div style={box}>
-            {title}
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                <span className={`tag ${warn ? "t-flag" : shownMaterial ? "t-mat" : "t-rout"}`}>
-                    {answerLabel(shownMaterial, shownCategory)}
-                </span>
-                <span style={{ color: "var(--ink-3, #6e7a8a)" }}>
-                    {shownMaterial === true ? "Material" : shownMaterial === false ? "Routine" : ""}
-                </span>
+        <div style={section}>
+            {/* Header: title + verdict */}
+            <div style={{ ...pad, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 16px" }}>
+                {titleBlock}
+                {verdict}
             </div>
 
-            {override ? (
-                <div style={{ margin: "8px 0 10px", color: "var(--green, #5ac999)" }}>
-                    Reviewed by {override.reviewer}
-                    <div style={{ color: "var(--ink-3, #6e7a8a)", fontSize: "11.5px" }}>
-                        Model said {answerLabel(interp.is_material, interp.category)} at {formatConfidence(interp.confidence)}
-                    </div>
-                </div>
-            ) : (
-                <>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
-                        <span style={{ color: "var(--ink-3, #6e7a8a)" }}>Confidence</span>
-                        <span style={{ fontFamily: "var(--mono)" }}>{formatConfidence(interp.confidence)}</span>
-                    </div>
-                    <ConfidenceBar value={interp.confidence} warn={warn} />
-                </>
-            )}
-
-            {factRow("Counterparty", show(facts.counterparty))}
-            {factRow("Amount", amountText(facts))}
-            {factRow("Date", show(eventDate(facts)))}
-
-            {interp.reasoning && (
-                <div style={{ marginTop: "8px", fontStyle: "italic", color: "var(--ink-2, #a3b1c6)" }}>
-                    {interp.reasoning}
-                </div>
-            )}
-
-            {warn && (
-                <div style={{ marginTop: "10px" }}>
-                    <Link
-                        to="/review?tab=classification"
-                        style={{ color: "var(--amber, #e2a44a)", fontSize: "12px" }}
-                    >
-                        Waiting for review →
-                    </Link>
-                </div>
-            )}
-
             {interp.failure_code && (
-                <div style={{ marginTop: "6px", color: "var(--red, #e2695a)", fontSize: "11.5px" }}>
+                <div style={{ ...pad, ...divider, paddingTop: "8px", paddingBottom: "8px", color: "var(--red, #e2695a)", fontSize: "12px" }}>
                     {interp.failure_code}
+                </div>
+            )}
+
+            {/* Facts grid: material only */}
+            {shownMaterial !== false && (
+                <div
+                    style={{
+                        ...pad,
+                        ...divider,
+                        display: "grid",
+                        // Three columns on wide cards; wraps to rows on narrow screens.
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gap: "12px 24px"
+                    }}
+                >
+                    {fact("Counterparty", show(facts.counterparty))}
+                    {fact(
+                        "Amount",
+                        amounts.length
+                            ? amounts.map(text => <div key={text}>{text}</div>)
+                            : "N/A"
+                    )}
+                    {fact("Event date", <span style={{ fontFamily: "var(--mono)" }}>{show(eventDate(facts))}</span>)}
+                </div>
+            )}
+
+            {/* Reasoning */}
+            {reasoning && (
+                <div style={{ ...pad, ...divider, lineHeight: 1.55, color: "var(--ink-2, #a3b1c6)" }}>
+                    <div
+                        ref={reasoningRef}
+                        style={
+                            expanded
+                                ? undefined
+                                : {
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden"
+                                }
+                        }
+                    >
+                        {reasoning}
+                    </div>
+                    {(clipped || expanded) && (
+                        <button
+                            type="button"
+                            onClick={() => setExpanded(value => !value)}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                marginTop: "4px",
+                                color: "var(--cyan, #54b6d6)",
+                                fontSize: "12px",
+                                cursor: "pointer"
+                            }}
+                        >
+                            {expanded ? "Show less" : "Show more"}
+                        </button>
+                    )}
                 </div>
             )}
         </div>
