@@ -19,10 +19,6 @@ function Login() {
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
 
-    if (hasSession()) {
-        return <Navigate to="/" replace />;
-    }
-
     // MFA-01: when the account has an authenticator, step 1 returns a
     // short-lived handle instead of a token and this holds it. Null
     // means we are on the ordinary username/password step.
@@ -33,6 +29,19 @@ function Login() {
     // this account has none yet. Holds the QR to scan.
     const [enrolment, setEnrolment] = useState(null);
     const [backupCodes, setBackupCodes] = useState(null);
+
+    // Every hook above runs on EVERY render. React matches hooks by
+    // call order, so an early return placed above them changes the
+    // hook count between renders and crashes the component with
+    // "Rendered fewer hooks than expected".
+    //
+    // This bites exactly at login: finishLogin writes the session to
+    // localStorage and then navigates. A re-render between those two
+    // steps makes hasSession() true, the component would return after
+    // four hooks instead of eight, and the page goes white.
+    if (hasSession()) {
+        return <Navigate to="/" replace />;
+    }
 
     const finishLogin = (data) => {
         saveSession(data.token, {

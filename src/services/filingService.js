@@ -176,3 +176,33 @@ export async function getFilings(filters = {}) {
 //
 //     return response.data;
 // }
+
+
+/*
+    Guide Part 5: Interpreter review (staff only).
+
+    POST /api/classifications/<id>/override/
+        -> 201 with the filing row, same shape as /api/filings/
+        -> 400 invalid category, 409 already reviewed or superseded
+*/
+export async function overrideClassification(
+    classificationId,
+    { category, isMaterial, note = "" }
+) {
+    const response = await api.post(
+        `/classifications/${classificationId}/override/`,
+        {
+            category: isMaterial ? category : "",
+            is_material: isMaterial,
+            note
+        }
+    );
+
+    return response.data;
+}
+
+
+export async function getTaxonomy() {
+    const response = await api.get("/taxonomy/");
+    return response.data;
+}

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 // 8-K/A DISABLED: resolveAmendment removed.
 // import { getFilings, resolveAmendment } from "../services/filingService";
 import { getFilings } from "../services/filingService";
+import { getUser } from "../api/auth";
+import ClassificationReview from "../components/ClassificationReview";
 
 // const AMBIGUOUS_AMENDMENT_TARGET = "AMBIGUOUS_AMENDMENT_TARGET";  // 8-K/A DISABLED
 const formatStage = (stage) => {
@@ -54,7 +56,9 @@ const formatDate = (isoString) => {
 };
 
 
-function ReviewQueue() {
+// Guide Part 5: this was the whole page. It is now the "Failures" tab,
+// unchanged apart from rendering the tab bar it is given.
+function FailuresQueue({ tabs }) {
 
     const [filings, setFilings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -236,6 +240,7 @@ function ReviewQueue() {
                 className="content page"
                 id="page-review"
             >
+                {tabs}
                 Loading...
             </section>
         );
@@ -248,6 +253,7 @@ function ReviewQueue() {
                 className="content page"
                 id="page-review"
             >
+                {tabs}
                 {error}
             </section>
         );
@@ -270,6 +276,8 @@ function ReviewQueue() {
             >
                 Review Queue
             </h2>
+
+            {tabs}
 
             {/* 8-K/A DISABLED: amendment action-error banner removed.
             {actionError && (
@@ -607,5 +615,42 @@ function ReviewQueue() {
     );
 }
 
+
+/*
+    Guide Part 5: Review Queue with two tabs.
+
+    Failures        - the existing view, untouched (status=review).
+    Classification  - low-confidence Interpreter output (staff only;
+                      the backend enforces this too).
+
+    Non-staff users see exactly the page they saw before: no tab bar.
+*/
+function ReviewQueue() {
+    const isStaff = Boolean(getUser()?.is_staff);
+    const [tab, setTab] = useState("failures");
+
+    const tabs = isStaff ? (
+        <div className="filters" style={{ marginBottom: "16px" }}>
+            <button
+                className={`chip ${tab === "failures" ? "active" : ""}`}
+                onClick={() => setTab("failures")}
+            >
+                Failures
+            </button>
+            <button
+                className={`chip ${tab === "classification" ? "active" : ""}`}
+                onClick={() => setTab("classification")}
+            >
+                Classification
+            </button>
+        </div>
+    ) : null;
+
+    if (isStaff && tab === "classification") {
+        return <ClassificationReview tabs={tabs} />;
+    }
+
+    return <FailuresQueue tabs={tabs} />;
+}
 
 export default ReviewQueue;

@@ -65,6 +65,11 @@ function Sidebar({ isOpen, onClose }) {
         {
             name: "Run History",
             path: "/history"
+        },
+        {
+            // Guide 4.2: labelling screen for ground truth.
+            name: "Labelling",
+            path: "/labelling"
         }
 
         /*
