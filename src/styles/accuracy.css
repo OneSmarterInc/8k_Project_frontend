@@ -1,0 +1,181 @@
+/*
+    Accuracy page.
+
+    An instrument panel, not a dashboard. The job is to spot ONE
+    category degrading while the average holds, so the category rail
+    is the hero and everything else is quiet around it.
+
+    Palette, type and line weights are the app's existing tokens -
+    a second visual language on one screen would be the real design
+    failure here.
+*/
+
+.acc{ max-width: 1080px; }
+
+.acc-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:24px; flex-wrap:wrap; margin-bottom:6px;
+}
+.acc-head h1{ margin:0; font-size:22px; font-weight:600; letter-spacing:-.2px; }
+
+/* Run provenance. Rendered as labelled pairs rather than a string of
+   values, because "which model, which prompt" is the first question
+   asked when a rate moves. */
+.acc-meta{ display:flex; gap:18px; flex-wrap:wrap; }
+.acc-meta div{ display:flex; flex-direction:column; gap:2px; }
+.acc-meta dt{ font-size:10.5px; color:var(--ink-3); }
+.acc-meta dd{
+    margin:0; font-family:var(--mono); font-size:11.5px; color:var(--ink-2);
+}
+
+.acc-controls{ display:flex; align-items:center; gap:10px; margin:18px 0 26px; }
+.acc-controls select{
+    background:var(--bg-2); border:1px solid var(--line); color:var(--ink);
+    border-radius:7px; padding:6px 10px; font-family:var(--sans); font-size:13px;
+}
+.acc-controls select:focus-visible{ outline:2px solid rgba(84,182,214,.55); }
+
+.acc-section{ margin:0 0 34px; }
+.acc-section > h2{
+    margin:0 0 4px; font-size:14.5px; font-weight:600; color:var(--ink);
+}
+.acc-section > p.note{
+    margin:0 0 16px; font-size:12.5px; color:var(--ink-3); max-width:62ch;
+}
+
+/* ---- the rail: one row per category ---------------------------- */
+
+.rail{ display:flex; flex-direction:column; }
+
+.rail-row{
+    display:grid;
+    grid-template-columns: 150px 1fr 66px 116px 74px;
+    align-items:center; gap:16px;
+    padding:13px 0; border-top:1px solid var(--line-soft);
+}
+.rail-row:last-child{ border-bottom:1px solid var(--line-soft); }
+
+/* The overall row is a summary of the rows above it, so it reads as a
+   footer rather than a sixth peer. */
+.rail-row.is-overall{
+    border-top:1px solid var(--line);
+    margin-top:4px; background:linear-gradient(90deg,var(--panel),transparent 70%);
+}
+.rail-row.is-overall .rail-name{ color:var(--ink); }
+
+.rail-name{ font-size:13px; color:var(--ink-2); letter-spacing:.1px; }
+.rail-name small{ display:block; font-size:11px; color:var(--ink-3); }
+
+.rail-rate{
+    font-family:var(--mono); font-size:15px; text-align:right;
+    font-variant-numeric:tabular-nums;
+}
+.rail-n{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+    text-align:right; font-variant-numeric:tabular-nums;
+}
+
+.gauge{ position:relative; height:10px; }
+.gauge-track{
+    position:absolute; inset:0; background:var(--bg-2);
+    border:1px solid var(--line-soft); border-radius:3px; overflow:hidden;
+}
+.gauge-fill{
+    height:100%; border-radius:2px 0 0 2px;
+    transition:width .5s cubic-bezier(.2,.7,.3,1);
+}
+.gauge-fill.ok{ background:var(--green); }
+.gauge-fill.low{ background:var(--red); }
+
+/* A sample below the alarm floor is drawn hatched instead of solid.
+   Three wrong out of four is 25% and means nothing - the texture says
+   "not enough to judge" without a parenthetical. */
+.gauge-fill.thin{
+    background:repeating-linear-gradient(
+        -45deg, var(--ink-3) 0 3px, transparent 3px 6px
+    );
+}
+
+/* The bar the category is judged against, drawn on the track. */
+.gauge-mark{
+    position:absolute; top:-3px; bottom:-3px; width:1px;
+    background:var(--ink-2); opacity:.55;
+}
+.gauge-mark::after{
+    content:""; position:absolute; top:-3px; left:-2px;
+    border-left:2.5px solid transparent; border-right:2.5px solid transparent;
+    border-top:3px solid var(--ink-2); opacity:.8;
+}
+
+.spark{ display:block; }
+.spark path{ fill:none; stroke:var(--cyan); stroke-width:1.4; }
+.spark .spark-empty{
+    font-family:var(--mono); font-size:10px; fill:var(--ink-3);
+}
+
+/* ---- calibration ladder ---------------------------------------- */
+
+.ladder{ display:flex; flex-direction:column; gap:9px; max-width:480px; }
+.ladder-row{ display:grid; grid-template-columns:72px 1fr 54px 44px; gap:12px;
+    align-items:center; }
+.ladder-label{ font-size:12.5px; color:var(--ink-2); }
+.ladder-bar{ height:7px; background:var(--bg-2); border-radius:3px;
+    border:1px solid var(--line-soft); overflow:hidden; }
+.ladder-bar span{ display:block; height:100%; background:var(--violet);
+    transition:width .5s cubic-bezier(.2,.7,.3,1); }
+.ladder-rate, .ladder-n{ font-family:var(--mono); font-size:11.5px;
+    text-align:right; font-variant-numeric:tabular-nums; }
+.ladder-n{ color:var(--ink-3); }
+
+.warn{
+    border-left:2px solid var(--amber); padding:10px 0 10px 14px;
+    margin:0 0 18px; font-size:12.5px; color:var(--ink-2); max-width:62ch;
+}
+
+/* ---- disagreements --------------------------------------------- */
+
+.flows{ display:flex; flex-direction:column; gap:1px; }
+.flow{
+    display:grid; grid-template-columns:1fr 24px 1fr 40px; gap:10px;
+    align-items:center; padding:9px 12px; background:var(--panel);
+    font-size:12.5px;
+}
+.flow:first-child{ border-radius:7px 7px 0 0; }
+.flow:last-child{ border-radius:0 0 7px 7px; }
+.flow-from{ text-align:right; color:var(--ink-2); }
+.flow-to{ color:var(--amber); }
+.flow-arrow{ text-align:center; color:var(--ink-3); font-family:var(--mono); }
+.flow-count{ font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+    text-align:right; font-variant-numeric:tabular-nums; }
+
+table.acc-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.acc-table th{
+    text-align:left; font-weight:500; font-size:11px; color:var(--ink-3);
+    padding:0 12px 8px 0; border-bottom:1px solid var(--line);
+}
+.acc-table td{ padding:9px 12px 9px 0; border-bottom:1px solid var(--line-soft);
+    color:var(--ink-2); }
+.acc-table td.mono{ font-family:var(--mono); font-size:11.5px;
+    font-variant-numeric:tabular-nums; }
+.acc-table a{ color:var(--cyan); text-decoration:none; }
+.acc-table a:hover{ text-decoration:underline; }
+
+.acc-empty{
+    border:1px dashed var(--line); border-radius:9px; padding:26px 22px;
+    color:var(--ink-2); font-size:13px; max-width:62ch;
+}
+.acc-empty code{
+    font-family:var(--mono); font-size:12px; background:var(--bg-2);
+    border:1px solid var(--line-soft); border-radius:5px; padding:2px 6px;
+    color:var(--ink); display:inline-block; margin-top:8px;
+}
+
+@media (prefers-reduced-motion: reduce){
+    .gauge-fill, .ladder-bar span{ transition:none; }
+}
+
+@media (max-width: 720px){
+    .rail-row{ grid-template-columns:1fr 60px; row-gap:8px; }
+    .rail-row .gauge{ grid-column:1 / -1; }
+    .rail-row .spark, .rail-row .rail-n{ display:none; }
+}

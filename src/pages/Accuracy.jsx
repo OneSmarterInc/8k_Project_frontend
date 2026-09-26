@@ -1,76 +1,73 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import "../styles/accuracy.css";
 
 /*
     The Auditor's report.
 
-    Deliberately a separate page from Filings: different audience,
-    different cadence. Someone clearing the daily review queue does not
-    need accuracy trends, and putting them there would be noise.
+    Separate from Filings on purpose: different audience, different
+    cadence. Someone clearing the daily review queue does not need
+    accuracy trends.
 
-    Per-category is the primary view, not overall. The failure this
-    exists to catch is one category quietly falling while the average
-    holds, because that category is a small share of volume.
+    The category rail is the hero because the failure this page exists
+    to catch is ONE category falling while the average holds. An
+    overall number at the top would bury exactly that.
 */
 
-const PCT = (value) =>
-    value === null || value === undefined ? "—" : `${(value * 100).toFixed(1)}%`;
+const pct = (v) =>
+    v === null || v === undefined ? "—" : `${(v * 100).toFixed(1)}%`;
 
-function Bar({ value, bar }) {
-    // A rate is easier to read against its bar than as a bare number.
+function Gauge({ value, bar, thin }) {
     if (value === null || value === undefined) {
-        return <span style={{ color: "#888" }}>—</span>;
+        return <div className="gauge"><div className="gauge-track" /></div>;
     }
 
-    const below = bar !== undefined && value < bar;
+    const below = !thin && bar !== undefined && value < bar;
 
     return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <span
-                style={{
-                    display: "inline-block",
-                    width: 90,
-                    height: 8,
-                    background: "#eee",
-                    borderRadius: 4,
-                    overflow: "hidden",
-                }}
-            >
-                <span
-                    style={{
-                        display: "block",
-                        width: `${Math.min(100, value * 100)}%`,
-                        height: "100%",
-                        background: below ? "#c0392b" : "#27ae60",
-                    }}
+        <div className="gauge">
+            <div className="gauge-track">
+                <div
+                    className={
+                        "gauge-fill " + (thin ? "thin" : below ? "low" : "ok")
+                    }
+                    style={{ width: `${Math.min(100, value * 100)}%` }}
                 />
-            </span>
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                {PCT(value)}
-            </span>
-        </span>
+            </div>
+            {/* The bar sits on the track, so "is it passing" is read
+                from position rather than by comparing two numbers. */}
+            {bar !== undefined && (
+                <div className="gauge-mark" style={{ left: `${bar * 100}%` }} />
+            )}
+        </div>
     );
 }
 
-function Sparkline({ points }) {
+function Spark({ points }) {
+    const w = 110;
+    const h = 22;
+
     if (!points || points.length < 2) {
-        return <span style={{ color: "#888" }}>not enough windows</span>;
+        return (
+            <svg className="spark" width={w} height={h}>
+                <text className="spark-empty" x="0" y="15">
+                    one window
+                </text>
+            </svg>
+        );
     }
 
-    const width = 120;
-    const height = 24;
-    const step = width / (points.length - 1);
-
-    const path = points
+    const step = w / (points.length - 1);
+    const d = points
         .map((p, i) => {
-            const y = height - (p.agreement_rate || 0) * height;
-            return `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${y.toFixed(1)}`;
+            const y = h - 2 - (p.agreement_rate || 0) * (h - 4);
+            return `${i ? "L" : "M"}${(i * step).toFixed(1)},${y.toFixed(1)}`;
         })
         .join(" ");
 
     return (
-        <svg width={width} height={height} style={{ verticalAlign: "middle" }}>
-            <path d={path} fill="none" stroke="#2c3e50" strokeWidth="1.5" />
+        <svg className="spark" width={w} height={h} aria-hidden="true">
+            <path d={d} />
         </svg>
     );
 }
@@ -78,7 +75,7 @@ function Sparkline({ points }) {
 function Accuracy() {
     const [days, setDays] = useState(90);
     const [data, setData] = useState(null);
-    const [disagreements, setDisagreements] = useState([]);
+    const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -90,257 +87,295 @@ function Accuracy() {
             setError("");
 
             try {
-                const [summary, rows] = await Promise.all([
+                const [summary, disagreements] = await Promise.all([
                     api.get("/audit/summary/", { params: { days } }),
                     api.get("/audit/disagreements/"),
                 ]);
 
                 if (!cancelled) {
                     setData(summary.data);
-                    setDisagreements(rows.data?.results ?? []);
+                    setRows(disagreements.data?.results ?? []);
                 }
             } catch (err) {
-                console.error("Failed to load audit summary", err);
+                console.error("Failed to load the audit report", err);
                 if (!cancelled) {
                     setError(
-                        "Could not load the audit report. The backend may be unavailable."
+                        "The audit report did not load. Check that the backend is running."
                     );
                 }
             } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
+                if (!cancelled) setLoading(false);
             }
         }
 
         load();
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, [days]);
 
     if (loading) {
-        return <p>Loading audit report…</p>;
+        return <div className="acc"><p className="acc-empty">Loading the audit report…</p></div>;
     }
 
     if (error) {
-        return <p style={{ color: "#c0392b" }}>{error}</p>;
+        return <div className="acc"><p className="acc-empty">{error}</p></div>;
     }
 
     if (!data?.latest_run) {
         return (
-            <div>
-                <h1>Accuracy</h1>
-                <p>
-                    No audit has run yet. Run{" "}
-                    <code>python manage.py audit --sample 100</code> to produce
-                    the first report.
-                </p>
+            <div className="acc">
+                <div className="acc-head"><h1>Accuracy</h1></div>
+                <div className="acc-empty">
+                    No audit has run yet. Run the Auditor to compare the
+                    Interpreter against an independent read of the same
+                    filings.
+                    <code>python manage.py audit --sample 100</code>
+                </div>
             </div>
         );
     }
 
     const run = data.latest_run;
     const bars = data.bars;
+    const floor = bars.min_sample_for_alarm;
     const categories = [...(data.categories || []), "OVERALL"];
 
     return (
-        <div>
-            <h1>Accuracy</h1>
+        <div className="acc">
+            <div className="acc-head">
+                <h1>Accuracy</h1>
+                <dl className="acc-meta">
+                    <div>
+                        <dt>Last run</dt>
+                        <dd>{new Date(run.started_at).toLocaleString()}</dd>
+                    </div>
+                    <div>
+                        <dt>Checked</dt>
+                        <dd>
+                            {run.classification_checked} of {run.sampled_count}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Audit model</dt>
+                        <dd>{run.auditor_model_name}</dd>
+                    </div>
+                    <div>
+                        <dt>Prompt</dt>
+                        <dd>{run.auditor_prompt_version}</dd>
+                    </div>
+                    <div>
+                        <dt>Taxonomy</dt>
+                        <dd>{run.taxonomy_version}</dd>
+                    </div>
+                </dl>
+            </div>
 
-            {/* Version context first. When a rate moves, the first
-                question is whether the system changed or the filings
-                did — and that is unanswerable without these. */}
-            <p style={{ color: "#555", fontSize: 13 }}>
-                Last run {new Date(run.started_at).toLocaleString()} ·{" "}
-                {run.status} · {run.sampled_count} sampled ·{" "}
-                {run.classification_checked} checked · taxonomy{" "}
-                {run.taxonomy_version} · audit prompt{" "}
-                {run.auditor_prompt_version} · {run.auditor_model_name}
-                {run.error_count > 0 && (
-                    <span style={{ color: "#c0392b" }}>
-                        {" "}· {run.error_count} error(s)
-                    </span>
-                )}
-            </p>
-
-            <label style={{ fontSize: 13 }}>
-                Window{" "}
+            <div className="acc-controls">
+                <label htmlFor="acc-window" style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
+                    Window
+                </label>
                 <select
+                    id="acc-window"
                     value={days}
-                    onChange={(event) => setDays(Number(event.target.value))}
+                    onChange={(e) => setDays(Number(e.target.value))}
                 >
-                    <option value={30}>30 days</option>
-                    <option value={90}>90 days</option>
-                    <option value={180}>180 days</option>
-                    <option value={365}>365 days</option>
+                    <option value={30}>Last 30 days</option>
+                    <option value={90}>Last 90 days</option>
+                    <option value={180}>Last 180 days</option>
+                    <option value={365}>Last year</option>
                 </select>
-            </label>
+            </div>
 
-            <h2>Agreement by category</h2>
-            <table width="100%" cellPadding="6">
-                <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-                        <th>Category</th>
-                        <th>Agreement</th>
-                        <th>n</th>
-                        <th>Trend</th>
-                        <th>Grounding</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <section className="acc-section">
+                <h2>Agreement by category</h2>
+                <p className="note">
+                    How often an independent read of the same filing reaches the
+                    Interpreter's answer. The tick on each bar is the level that
+                    category is held to. Hatched bars are samples too small to
+                    judge — under {floor} filings.
+                </p>
+
+                <div className="rail">
                     {categories.map((category) => {
                         const latest = data.latest?.[category];
                         const trend = data.trend?.[category] ?? [];
-                        const bar =
-                            category === "OVERALL"
-                                ? bars.overall
-                                : bars.per_category;
+                        const isOverall = category === "OVERALL";
+                        const bar = isOverall ? bars.overall : bars.per_category;
 
                         if (!latest) {
                             return (
-                                <tr key={category}>
-                                    <td>{category}</td>
-                                    <td colSpan="4" style={{ color: "#888" }}>
-                                        not sampled in the latest run
-                                    </td>
-                                </tr>
+                                <div className="rail-row" key={category}>
+                                    <div className="rail-name">
+                                        {category}
+                                        <small>not in the latest sample</small>
+                                    </div>
+                                    <div className="gauge">
+                                        <div className="gauge-track" />
+                                    </div>
+                                    <div className="rail-rate">—</div>
+                                    <div />
+                                    <div />
+                                </div>
                             );
                         }
 
-                        /* A sample below the alarm floor is shown but
-                           not judged: three wrong out of four is 25%
-                           and means nothing. */
-                        const thin =
-                            latest.sample_size < bars.min_sample_for_alarm;
+                        const thin = latest.sample_size < floor;
 
                         return (
-                            <tr
+                            <div
+                                className={"rail-row" + (isOverall ? " is-overall" : "")}
                                 key={category}
-                                style={{ borderBottom: "1px solid #f0f0f0" }}
                             >
-                                <td>
-                                    <strong>{category}</strong>
-                                </td>
-                                <td>
-                                    <Bar
-                                        value={latest.agreement_rate}
-                                        bar={thin ? undefined : bar}
-                                    />
-                                </td>
-                                <td>
-                                    {latest.sample_size}
-                                    {thin && (
-                                        <span
-                                            style={{
-                                                color: "#888",
-                                                fontSize: 12,
-                                            }}
-                                            title={`Below the ${bars.min_sample_for_alarm}-sample floor: too small to judge.`}
-                                        >
-                                            {" "}(thin)
-                                        </span>
-                                    )}
-                                </td>
-                                <td>
-                                    <Sparkline points={trend} />
-                                </td>
-                                <td>{PCT(latest.grounding_rate)}</td>
-                            </tr>
+                                <div className="rail-name">
+                                    {category}
+                                    {thin && <small>too few to judge</small>}
+                                </div>
+                                <Gauge
+                                    value={latest.agreement_rate}
+                                    bar={bar}
+                                    thin={thin}
+                                />
+                                <div className="rail-rate">
+                                    {pct(latest.agreement_rate)}
+                                </div>
+                                <Spark points={trend} />
+                                <div className="rail-n">n={latest.sample_size}</div>
+                            </div>
                         );
                     })}
-                </tbody>
-            </table>
+                </div>
+            </section>
 
-            <h2>Summary grounding</h2>
-            <p>
-                <Bar
-                    value={data.grounding.rate}
-                    bar={bars.grounding}
-                />{" "}
-                <span style={{ color: "#555", fontSize: 13 }}>
-                    {data.grounding.grounded_claims} of{" "}
-                    {data.grounding.total_claims} claims in the generated
-                    summaries appear in the filing text. A dropped fact is not
-                    counted — only an invented one.
-                </span>
-            </p>
-
-            <h2>Calibration</h2>
-            {data.calibration_monotonic === false && (
-                <p style={{ color: "#c0392b" }}>
-                    Agreement does not rise with confidence. If this holds at a
-                    real sample size, the confidence score is not informative
-                    and the review queue is routing people to the wrong filings.
+            <section className="acc-section">
+                <h2>Summary grounding</h2>
+                <p className="note">
+                    Claims in the generated summaries that appear in the filing
+                    text. A summary that leaves a fact out is not counted; only
+                    one that states something the filing does not.
                 </p>
-            )}
-            <table cellPadding="6">
-                <thead>
-                    <tr style={{ textAlign: "left" }}>
-                        <th>Interpreter confidence</th>
-                        <th>Agreement</th>
-                        <th>n</th>
-                    </tr>
-                </thead>
-                <tbody>
+                <div className="rail">
+                    <div className="rail-row is-overall">
+                        <div className="rail-name">
+                            Grounded claims
+                            <small>
+                                {data.grounding.grounded_claims} of{" "}
+                                {data.grounding.total_claims}
+                            </small>
+                        </div>
+                        <Gauge
+                            value={data.grounding.rate}
+                            bar={bars.grounding}
+                            thin={data.grounding.total_claims < floor}
+                        />
+                        <div className="rail-rate">{pct(data.grounding.rate)}</div>
+                        <div />
+                        <div />
+                    </div>
+                </div>
+            </section>
+
+            <section className="acc-section">
+                <h2>Confidence calibration</h2>
+                {data.calibration_monotonic === false && (
+                    <p className="warn">
+                        Agreement is not rising with confidence. If that holds at
+                        a real sample size, the confidence score is not telling
+                        you which filings are wrong, and the review queue is
+                        sending people to the wrong ones.
+                    </p>
+                )}
+                <div className="ladder">
                     {(data.calibration || []).map((band) => (
-                        <tr key={band.band}>
-                            <td>{band.band}</td>
-                            <td>{PCT(band.agreement_rate)}</td>
-                            <td>{band.sample_size}</td>
-                        </tr>
+                        <div className="ladder-row" key={band.band}>
+                            <div className="ladder-label">{band.band}</div>
+                            <div className="ladder-bar">
+                                <span
+                                    style={{
+                                        width: `${(band.agreement_rate || 0) * 100}%`,
+                                    }}
+                                />
+                            </div>
+                            <div className="ladder-rate">
+                                {pct(band.agreement_rate)}
+                            </div>
+                            <div className="ladder-n">n={band.sample_size}</div>
+                        </div>
                     ))}
-                </tbody>
-            </table>
+                </div>
+            </section>
 
-            <h2>Where they disagree</h2>
-            {/* The actionable half: a rate says something moved, these
-                say which filings to read. */}
-            {data.confusion.length === 0 ? (
-                <p style={{ color: "#888" }}>No disagreements in the latest run.</p>
-            ) : (
-                <ul>
-                    {data.confusion.map((row) => (
-                        <li key={`${row.predicted}-${row.actual}`}>
-                            Interpreter said <strong>{row.predicted}</strong>,
-                            auditor said <strong>{row.actual}</strong> ×
-                            {row.count}
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <section className="acc-section">
+                <h2>Where the two reads differ</h2>
+                <p className="note">
+                    A rate tells you something moved. These tell you which
+                    boundary, and which filings to open.
+                </p>
 
-            <h3>Filings to read</h3>
-            <table width="100%" cellPadding="6">
-                <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-                        <th>Ticker</th>
-                        <th>Accession</th>
-                        <th>Interpreter</th>
-                        <th>Conf</th>
-                        <th>Auditor</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {disagreements.slice(0, 25).map((row) => (
-                        <tr key={row.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                            <td>{row.ticker}</td>
-                            <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                                {row.accession}
-                            </td>
-                            <td>{row.interpreter_category}</td>
-                            <td>
-                                {row.interpreter_confidence === null
-                                    ? "—"
-                                    : row.interpreter_confidence.toFixed(2)}
-                            </td>
-                            <td>{row.auditor_category}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            {disagreements.length === 0 && (
-                <p style={{ color: "#888" }}>Nothing to read.</p>
+                {data.confusion.length === 0 ? (
+                    <p className="acc-empty">
+                        Both reads agreed on every filing in the latest sample.
+                    </p>
+                ) : (
+                    <div className="flows">
+                        {data.confusion.map((row) => (
+                            <div
+                                className="flow"
+                                key={`${row.predicted}-${row.actual}`}
+                            >
+                                <div className="flow-from">{row.predicted}</div>
+                                <div className="flow-arrow">&gt;</div>
+                                <div className="flow-to">{row.actual}</div>
+                                <div className="flow-count">{row.count}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {rows.length > 0 && (
+                <section className="acc-section">
+                    <h2>Filings to read</h2>
+                    <p className="note">
+                        Open a few of these and decide who is right. Until
+                        someone does, the agreement rate says the two reads
+                        differ, not which one is wrong.
+                    </p>
+                    <table className="acc-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Accession</th>
+                                <th>Interpreter</th>
+                                <th>Confidence</th>
+                                <th>Independent read</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.slice(0, 25).map((row) => (
+                                <tr key={row.id}>
+                                    <td>{row.ticker}</td>
+                                    <td className="mono">
+                                        <a
+                                            href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&filenum=${row.accession}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            {row.accession}
+                                        </a>
+                                    </td>
+                                    <td>{row.interpreter_category}</td>
+                                    <td className="mono">
+                                        {row.interpreter_confidence === null
+                                            ? "—"
+                                            : row.interpreter_confidence.toFixed(2)}
+                                    </td>
+                                    <td style={{ color: "var(--amber)" }}>
+                                        {row.auditor_category}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </section>
             )}
         </div>
     );
