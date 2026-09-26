@@ -12,7 +12,7 @@ import ReviewQueue from "./pages/ReviewQueue";
 import Schedule from "./pages/Schedule";
 import MfaSetup from "./pages/MfaSetup";
 import RunHistory from "./pages/RunHistory";
-import Labelling from "./pages/Labelling";
+import Accuracy from "./pages/Accuracy";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
 
@@ -61,14 +61,13 @@ function App(){
                         element={<RunHistory />}
                     />
 
-                    {/* Guide 4.2: blind labelling for ground truth (G2). */}
-                    <Route
-                        path="/labelling"
-                        element={<Labelling />}
+                    
+                                    <Route
+                        path="/accuracy"
+                        element={<Accuracy />}
                     />
 
-                    
-                </Route>
+</Route>
 
             </Routes>
 

@@ -67,9 +67,8 @@ function Sidebar({ isOpen, onClose }) {
             path: "/history"
         },
         {
-            // Guide 4.2: labelling screen for ground truth.
-            name: "Labelling",
-            path: "/labelling"
+            name: "Accuracy",
+            path: "/accuracy"
         }
 
         /*
